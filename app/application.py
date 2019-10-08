@@ -43,7 +43,7 @@ class LocalConfig(object):
     __iv = bytes(IV, encoding='utf-8')
 
     def __init__(self):
-        self.set_file_info()
+        self.get_file_info()
 
     def get_file_info(self):
         if not os.path.exists(self.PATH):
@@ -64,7 +64,6 @@ class LocalConfig(object):
                 f.write(json.dumps(dict()))
         with open(self.FILE, 'w') as f:
             json.dump(self.__dict__, f)
-
 
     def encrypt(self, text):
         pass
@@ -169,6 +168,7 @@ class Printer(object):
         self.image.paste(im, box)
 
     def address_date_draw(self, address, date):
+        address = address.strip()
         # 地址超过 14个换行
         if len(address) <= 14:
             font_sytle = self.FONT_STYLE_BUTTOM
@@ -280,6 +280,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_SN):
             sys.exit()
         self.actionLogin.triggered.connect(self.open_login)
         self.odoo = None
+        self.config = LocalConfig()
 
     def get_info(self, sn):
         try:
@@ -300,6 +301,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_SN):
             QtWidgets.QMessageBox.warning(self, '异常', '打印69码错误:%s' % e)
 
     def login(self, name, password, url):
+        self.config.name = name
+        self.config.url = url
+        self.config.set_file_info()
         if not all([name, password, url]):
             QtWidgets.QMessageBox.warning(self, '异常', '填写内容不完整')
             raise Exception
@@ -317,7 +321,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_SN):
             odoo = odoorpc.ODOO(host=host, protocol=protocol, port=port)
             db = odoo.db.list()
         except Exception as e:
-            QtWidgets.QMessageBox.warning(self, '异常', '链接服务器失败')
+            QtWidgets.QMessageBox.warning(self, '异常', '连接服务器失败')
             raise e
         try:
             odoo.login(db[0], name, password)
@@ -325,6 +329,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_SN):
         except Exception as e:
             QtWidgets.QMessageBox.warning(self, '异常', '账号/密码错误')
             raise e
+
 
 class LoginDialog(QtWidgets.QDialog, Ui_Login):
 
@@ -334,6 +339,11 @@ class LoginDialog(QtWidgets.QDialog, Ui_Login):
         self.buttonBox.setStandardButtons(QtWidgets.QDialogButtonBox.Cancel|QtWidgets.QDialogButtonBox.Ok)
         self.buttonBox.setObjectName("buttonBox")
         self.main = main
+        # 历史url和账号
+        if hasattr(self.main.config, 'url'):
+            self.net.setText(self.main.config.url)
+        if hasattr(self.main.config, 'name'):
+            self.name.setText(self.main.config.name)
         self.setFixedSize(self.width(), self.height())
         self.setWindowIcon(QIcon(':/images/logo.png'))
         btns = self.buttonBox.buttons()
