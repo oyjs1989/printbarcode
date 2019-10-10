@@ -146,13 +146,16 @@ class Printer(object):
         im = cd.get_pilimage(barcode_width, barcode_height)
         self.image.paste(im, box)
 
-    def sn_sku_draw(self, sn, sku):
+    def sn_sku_draw(self, sn, sku=None):
         font_sytle = self.FONT_STYLE_MID
         font_szie = self.FONT_SZIE_MID
         y = Decimal('10.2')
         font = ImageFont.truetype(font_sytle, round(font_szie * self.MULTIPLE))
-        self.write_word(sn, font, top=y, margin_left=Decimal('2.5'))
-        self.write_word(sku, font, top=y, margin_right=Decimal('3.5'))
+        if sku:
+            self.write_word(sn, font, top=y, margin_left=Decimal('2.5'))
+            self.write_word(sku, font, top=y, margin_right=Decimal('3.5'))
+        else:
+            self.write_word(sn, font, top=y, margin_right=Decimal('3.5'))
 
     def barcode_draw(self, barcode):
         font_sytle = self.FONT_STYLE_CODE
@@ -204,7 +207,10 @@ class Printer(object):
         self.name_draw(data.get('first_name'), data.get('second_name'))
         self.color_draw(data.get('color'))
         self.sn_draw(data.get('sn'))
-        self.sn_sku_draw(data.get('sn'), data.get('SKU'))
+        if '小米' in data.get('first_name'):
+            self.sn_sku_draw(data.get('sn'), data.get('SKU'))
+        else:
+            self.sn_sku_draw(data.get('sn'))
         self.barcode_draw(data.get('barcode'))
         self.address_date_draw(data.get('address'), data.get('datetime'))
         self.certificate_draw()
