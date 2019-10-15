@@ -5,7 +5,7 @@ block_cipher = None
 
 a = Analysis(['main.py'],
              pathex=['D:\\git_repertory\\pythonDemo\\qt_demo\\barcode'],
-             binaries=[],
+             binaries=[('D:\\git_repertory\\pythonDemo\\qt_demo\\barcode\\PrintDll.dll','.')],
              datas=[],
              hiddenimports=[],
              hookspath=[],

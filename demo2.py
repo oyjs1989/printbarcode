@@ -3,7 +3,7 @@
 '''
 #   File Name：     demo2
 #   Author :        lumi
-#   date：          2019/9/19
+#   date：          2019/10/15
 #   Description :
 '''
 # - Custom package
@@ -11,80 +11,31 @@
 # - Third party module of python
 
 # - import odoo package
-import win32print
-import win32ui
-from PIL import Image, ImageWin
 
-#
-# Constants for GetDeviceCaps
-#
-#
-# HORZRES / VERTRES = printable area
-#
-HORZRES = 8
-VERTRES = 10
-#
-# LOGPIXELS = dots per inch
-#
-LOGPIXELSX = 88
-LOGPIXELSY = 90
-#
-# PHYSICALWIDTH/HEIGHT = total area
-#
-PHYSICALWIDTH = 110
-PHYSICALHEIGHT = 111
-#
-# PHYSICALOFFSETX/Y = left / top margin
-#
-PHYSICALOFFSETX = 112
-PHYSICALOFFSETY = 113
+# import clr
+# clr.FindAssembly("LabelPainter_SDK.dll")
+# clr.FindAssembly("hasp_windows_82155.dll")
+# from hasp_windows_82155 import *  # 导入命名空间
+# from LabelPainter_SDK import *  # 导入命名空间
 
-printer_name = win32print.GetDefaultPrinter()
-file_name = "code.jpg"
+# instance = ZL_Initialization(r'C:\ProgramData\Microsoft\Windows\Start Menu\Programs\中琅条码标签打印软件')
 
-#
-# You can only write a Device-independent bitmap
-#  directly to a Windows device context; therefore
-#  we need (for ease) to use the Python Imaging
-#  Library to manipulate the image.
-#
-# Create a device context from a named printer
-#  and assess the printable size of the paper.
-#
-hDC = win32ui.CreateDC()
-hDC.CreatePrinterDC(printer_name)
-printable_area = hDC.GetDeviceCaps(HORZRES), hDC.GetDeviceCaps(VERTRES)
-printer_size = hDC.GetDeviceCaps(PHYSICALWIDTH), hDC.GetDeviceCaps(PHYSICALHEIGHT)
-printer_margins = hDC.GetDeviceCaps(PHYSICALOFFSETX), hDC.GetDeviceCaps(PHYSICALOFFSETY)
+# lib = ctypes.cdll.LoadLibrary('./LabelPainter_SDK.dll')
 
-#
-# Open the image, rotate it if it's wider than
-#  it is high, and work out how much to multiply
-#  each pixel by to get it as big as possible on
-#  the page without distorting.
-#
-image = Image.open(file_name)
-if image.size[0] > image.size[1]:
-    image = image.rotate(90)
+import ctypes
+# program_path = ctypes.c_char_p("C:\\Program Files (x86)\\中琅条码标签打印软件\\")
+program_path = "C:\\Program Files (x86)\\中琅条码标签打印软件\\"
+demo_path = r"D:\git_repertory\pythonDemo\qt_demo\barcode\demo1.zhl"
 
-ratios = [1.0 * printable_area[0] / image.size[0], 1.0 * printable_area[1] / image.size[1]]
-scale = min(ratios)
-
-#
-# Start the print job, and draw the bitmap to
-#  the printer device at the scaled size.
-#
-hDC.StartDoc(file_name)
-hDC.StartPage()
-
-dib = ImageWin.Dib(image)
-scaled_width, scaled_height = [int(scale * i) for i in image.size]
-x1 = int((printer_size[0] - scaled_width) / 2)
-y1 = int((printer_size[1] - scaled_height) / 2)
-x2 = x1 + scaled_width
-y2 = y1 + scaled_height
-dib.draw(hDC.GetHandleOutput(), (x1, y1, x2, y2))
-
-hDC.EndPage()
-hDC.EndDoc()
-hDC.DeleteDC()
+dll = ctypes.windll.LoadLibrary(r"D:\git_repertory\pythonDemo\qt_demo\barcode\LabelPainter_SDK.dll")
+# dll.ZL_Initialization.argtypes = [ctypes.POINTER(ctypes.c_char)]
+# dll.ZL_Initialization.restype = ctypes.c_char_p
+s = dll.ZL_Initialization(program_path)
+print(s)
+# dll.ZL_OpenDoc(demo_path, "")
+# dll.ZL_OutputToPrinter()
+# dll.ZL_SetDataCustom()
+# dll.ZL_StartOutputCustom()
+# dll.ZL_StopOutput()
+# dll.ZL_CloseDoc()
+# dll.ZL_Release()
