@@ -29,7 +29,7 @@
      </font>
     </property>
     <property name="text">
-     <string>打印69码</string>
+     <string>打印</string>
     </property>
     <property name="alignment">
      <set>Qt::AlignCenter</set>
@@ -53,7 +53,7 @@
         </font>
        </property>
        <property name="text">
-        <string>SN</string>
+        <string>输入：</string>
        </property>
       </widget>
      </item>
@@ -76,7 +76,13 @@
     </property>
     <addaction name="actionLogin"/>
    </widget>
+   <widget class="QMenu" name="menu_print_method">
+    <property name="title">
+     <string>选择打印方法</string>
+    </property>
+   </widget>
    <addaction name="menuLogin"/>
+   <addaction name="menu_print_method"/>
   </widget>
   <action name="actionLogin">
    <property name="text">
