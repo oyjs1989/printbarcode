@@ -154,8 +154,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_SN):
             printer = self.printers.get(self.config.print_method)
             printer.print_(self.odoo, input_raw)
         except Exception as e:
-            raise e
             QtWidgets.QMessageBox.warning(self, '异常', '打印错误:%s' % e)
+
 
     def login(self, name, password, url):
         if not all([name, password, url]):
@@ -176,11 +176,13 @@ class MainWindow(QtWidgets.QMainWindow, Ui_SN):
             db = odoo.db.list()
             self.config.url = '%s://%s:%s' % (url_parse.scheme, host, port)
             if hasattr(self.config, 'urls'):
-                self.config.urls = list(set(self.config.urls.append(self.config.url)))
+                self.config.urls.append(self.config.url)
+                self.config.urls = list(set(self.config.urls))
             else:
                 self.config.urls = [self.config.url]
             self.config.set_file_info()
         except Exception as e:
+            print(e)
             QtWidgets.QMessageBox.warning(self, '异常', '连接服务器失败')
             raise e
         try:
@@ -188,7 +190,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_SN):
             self.odoo = odoo
             self.config.name = name
             if hasattr(self.config, 'names'):
-                self.config.names = list(set(self.config.names.append(self.config.name)))
+                self.config.names.append(self.config.name)
+                self.config.names = list(set(self.config.names))
             else:
                 self.config.names = [self.config.name]
             self.config.set_file_info()

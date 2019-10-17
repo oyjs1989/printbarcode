@@ -15,7 +15,7 @@
 import clr
 import time
 # clr.FindAssembly(r"D:\git_repertory\pythonDemo\qt_demo\barcode\PrintDll.dll")  ## 加载c#dll文件
-s = clr.FindAssembly(r'D:\git_repertory\pythonDemo\qt_demo\barcode\LabelPainter_SDK.dll')  ## 加载c#dll文件
+s = clr.FindAssembly(r'D:\git_repertory\pythonDemo\qt_demo\barcode\Seagull.BarTender.Print.dll')  ## 加载c#dll文件
 print(s)
 # from PrintDll import *  # 导入命名空间
 from LabelPainter_SDK import *  # 导入命名空间

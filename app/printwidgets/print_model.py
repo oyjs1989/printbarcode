@@ -12,6 +12,7 @@
 
 # - import odoo package
 import os
+
 from mycode128 import Code128Generate
 from myean13 import EAN13Generate
 from myqrcode import QrcodeGenerate
@@ -21,7 +22,6 @@ from PyQt5.QtCore import QRect
 from decimal import *
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
-from PyQt5 import QtWidgets
 
 def get_font_path(file_path):
     if os.path.isfile(file_path):
@@ -59,8 +59,7 @@ class ZigbeeQrcode(object):
         if not response:
             return
         if response.get('state') != 0:
-            QtWidgets.QMessageBox.information(self, '提示', response.get('msg'))
-            return
+            raise Exception(response.get('msg'))
         data = response.get('printcontent')
         self.zigbee_draw(data.get('zigbee_info'))
         self.sn_draw(input_raw)
