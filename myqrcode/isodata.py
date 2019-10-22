@@ -43,8 +43,9 @@ class MatrixInfo:
     dependent information necessary for creating matrix"""
 
     def __init__(self, version, ecl):
-        path = os.path.join(os.path.split(__file__)[0], 'qrcode_data')
-
+        # path = os.path.join(os.path.split(__file__)[0], 'qrcode_data')
+        path = os.path.join(os.getcwd(), 'qrcode_data')
+        print(path)
         self.byte_num = (MATRIX_REMAIN_BIT[version] + (MAX_CODEWORDS[version] << 3))
 
         filename = path + "/qrv" + str(version) + "_"

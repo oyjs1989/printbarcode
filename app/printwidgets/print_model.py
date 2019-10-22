@@ -12,7 +12,7 @@
 
 # - import odoo package
 import os
-
+import json
 from mycode128 import Code128Generate
 from myean13 import EAN13Generate
 from myqrcode import QrcodeGenerate
@@ -22,6 +22,9 @@ from PyQt5.QtCore import QRect
 from decimal import *
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
+import requests
+
+# 所有字体
 
 def get_font_path(file_path):
     if os.path.isfile(file_path):
@@ -31,6 +34,189 @@ def get_font_path(file_path):
         return file_path
     except Exception:
         raise Exception('%s not found' % file_path)
+
+
+class Printer(object):
+    '''
+    打印机基类：
+    0.获取打印配置
+    1.生成打印模型
+    2.获取打印数据
+    3.生成打印图像
+    4.调用打印机
+    '''
+
+    def __init__(self):
+        self.p = QPrinterInfo.defaultPrinter()
+        self.print_device = QPrinter(self.p)
+        self.font_style = get_font_path('Arial.ttf')
+        self.virtual_multiple = Decimal("100")  #  虚拟图像放大倍数
+        self.virtual_width = self.virtual_multiple * Decimal("25.3")
+        self.virtual_height = self.virtual_multiple * Decimal("25.8")
+        self.reality_multiple = Decimal("3.78")  # 打印机放大倍数
+        self.reality_heigh = round(Decimal('25.8') * self.reality_multiple)
+        self.reality_width = round(Decimal('25.4') * self.reality_multiple)
+        self.image = Image.new('L', (round(self.virtual_width), round(self.virtual_height)), 255)
+        self.draw = ImageDraw.Draw(self.image)
+
+    def print_image(self):
+        x1 = 0
+        y1 = 0
+        x2 = x1 + self.reality_width
+        y2 = y1 + self.reality_heigh
+        tmp = BytesIO()
+        self.image.save(tmp, format='BMP')
+        image = QPixmap()
+        image.loadFromData(tmp.getvalue())                # 使用QImage构造图片
+        painter = QPainter(self.print_device)             # 使用打印机作为绘制设备
+        painter.drawPixmap(QRect(x1, y1, x2, y2), image)  # 进行绘制（即调起打印服务）
+        painter.end()                                     # 打印结束
+
+
+class NetPrinter(Printer):
+    '''互联网信息打印'''
+
+    def get_net_info(self):
+        pass
+
+class LocalPrinter(Printer):
+    '''
+    本地打印，不需要互联网信息
+    '''
+    pass
+
+
+class SNPrintRectangle(LocalPrinter):
+    '''
+    SN本地打印矩形框
+    '''
+    multiple = Decimal("100")
+    width = multiple * Decimal("34.5")
+    height = multiple * Decimal("9.5")
+    PT_TO_MM_DECIMAL = Decimal("25.4") / Decimal("72")
+    image = Image.new('L', (round(width), round(height)), 255)
+    draw = ImageDraw.Draw(image)
+
+    def __init__(self):
+        self.p = QPrinterInfo.defaultPrinter()
+        self.print_device = QPrinter(self.p)
+        try:
+            self.FONT_STYLE = get_font_path('Arial.ttf')
+        except Exception as e:
+            raise e
+
+    def print_(self, odoo, input_raw=None):
+        if not input_raw:
+            return
+        self.sn_draw(input_raw)
+        TIMES = Decimal("3.78")
+        heigh = round(Decimal('9.5') * TIMES)
+        width = round(Decimal('34.5') * TIMES)
+        x1 = 0
+        y1 = 0
+        x2 = x1 + width
+        y2 = y1 + heigh
+        image = QPixmap()
+        tmp = BytesIO()
+        self.image.save(tmp, format='BMP')
+        image.loadFromData(tmp.getvalue())  # 使用QImage构造图片
+        painter = QPainter(self.print_device)  # 使用打印机作为绘制设备
+        painter.drawPixmap(QRect(x1, y1, x2, y2), image)  # 进行绘制（即调起打印服务）
+        painter.end()  # 打印结束
+
+    def write_word(self, words, font, top=0, margin_left=0, margin_right=0, center=False):
+        y = top * self.multiple
+        text_width, text_height = font.getsize(words)
+        if margin_left:
+            x = margin_left * self.multiple
+        elif margin_right:
+            x = self.width - margin_right * self.multiple - text_width
+        elif center:
+            x = (self.width - text_width) / 2
+        else:
+            x = 0
+        self.draw.text((round(x), y), words, font=font, fill=0)
+
+    def sn_draw(self, sn):
+        x = Decimal("2.2") * self.multiple
+        y = Decimal("1.25") * self.multiple
+        zigbee_width = self.multiple * Decimal("30.1")
+        zigbee_height = self.multiple * Decimal("5")
+        cg = Code128Generate(sn, self.image, options={'MULTIPLE': self.multiple})
+        im = cg.get_pilimage(zigbee_width, zigbee_height)
+        im = im.resize((round(zigbee_width), round(zigbee_height)), Image.ANTIALIAS)
+        box = (x, y, x + zigbee_width, y + zigbee_height)
+        self.image.paste(im, box)
+        font_style = self.FONT_STYLE
+        font_szie = self.PT_TO_MM_DECIMAL * Decimal("5.5")
+        font = ImageFont.truetype(font_style, round(font_szie * self.multiple))
+        self.write_word('SN:%s' % sn, font, top=Decimal('6.75'), center=True)
+
+class SNPrintOval(LocalPrinter):
+    '''
+    SN本地打印36*10mm
+    '''
+    multiple = Decimal("100")
+    width = multiple * Decimal("36")
+    height = multiple * Decimal("10")
+    PT_TO_MM_DECIMAL = Decimal("25.4") / Decimal("72")
+    image = Image.new('L', (round(width), round(height)), 255)
+    draw = ImageDraw.Draw(image)
+
+    def __init__(self):
+        self.p = QPrinterInfo.defaultPrinter()
+        self.print_device = QPrinter(self.p)
+        try:
+            self.FONT_STYLE = get_font_path('Arial.ttf')
+        except Exception as e:
+            raise e
+
+    def print_(self, odoo, input_raw=None):
+        if not input_raw:
+            return
+        self.sn_draw(input_raw)
+        TIMES = Decimal("3.78")
+        heigh = round(Decimal('10') * TIMES)
+        width = round(Decimal('36') * TIMES)
+        x1 = 0
+        y1 = 0
+        x2 = x1 + width
+        y2 = y1 + heigh
+        image = QPixmap()
+        tmp = BytesIO()
+        self.image.save(tmp, format='BMP')
+        image.loadFromData(tmp.getvalue())  # 使用QImage构造图片
+        painter = QPainter(self.print_device)  # 使用打印机作为绘制设备
+        painter.drawPixmap(QRect(x1, y1, x2, y2), image)  # 进行绘制（即调起打印服务）
+        painter.end()  # 打印结束
+
+    def write_word(self, words, font, top=0, margin_left=0, margin_right=0, center=False):
+        y = top * self.multiple
+        text_width, text_height = font.getsize(words)
+        if margin_left:
+            x = margin_left * self.multiple
+        elif margin_right:
+            x = self.width - margin_right * self.multiple - text_width
+        elif center:
+            x = (self.width - text_width) / 2
+        else:
+            x = 0
+        self.draw.text((round(x), y), words, font=font, fill=0)
+
+    def sn_draw(self, sn):
+        x = Decimal("4.1") * self.multiple
+        y = Decimal("1") * self.multiple
+        width = self.multiple * Decimal("27.8")
+        height = self.multiple * Decimal("5.5")
+        cg = Code128Generate(sn, self.image, options={'MULTIPLE': self.multiple})
+        im = cg.get_pilimage(width, height)
+        im = im.resize((round(width), round(height)), Image.ANTIALIAS)
+        box = (x, y, x + width, y + height)
+        self.image.paste(im, box)
+        font_style = self.FONT_STYLE
+        font_szie = self.PT_TO_MM_DECIMAL * Decimal("5.5")
+        font = ImageFont.truetype(font_style, round(font_szie * self.multiple))
+        self.write_word(sn, font, top=Decimal('7.2'), center=True)
 
 
 class ZigbeeQrcode(object):
@@ -55,15 +241,36 @@ class ZigbeeQrcode(object):
     def print_(self, odoo, input_raw=None):
         if not input_raw:
             return
-        response = odoo.env['lumi.zigbee.information.wiazrd'].scan_sn_for_zigbee(input_raw)
+        request_data = {
+            'params': {'db': odoo.env.db,
+                       'login': odoo._login,
+                       'password': odoo._password,
+                       'sn': input_raw}
+        }
+        headers = {
+            'Content-Type': 'application/json',
+        }
+        host = odoo.host
+        protocol = odoo.protocol
+        port = odoo.port
+        if protocol == 'jsonrpc':
+            scheme = 'http'
+        else:
+            scheme = 'https'
+        url = '%s://%s:%s/api/post/iface/get/zigbee' % (scheme, host, port)
+        response = requests.post(url, data=json.dumps(request_data), headers=headers)
         if not response:
             return
-        if response.get('state') != 0:
-            raise Exception(response.get('msg'))
-        data = response.get('printcontent')
+        response_json = json.loads(response.text)
+        if response_json.get('error'):
+            raise Exception(response_json.get('error').get('data').get('message'))
+        result = json.loads(response_json.get('result'))
+        if result.get('state', -1) != 0:
+            raise Exception(result.get('msg'))
+        data = result.get('printcontent')
         self.zigbee_draw(data.get('zigbee_info'))
         self.sn_draw(input_raw)
-        TIMES = Decimal("3.75")
+        TIMES = Decimal("3.78")
         heigh = round(Decimal('25.8') * TIMES)
         width = round(Decimal('25.4') * TIMES)
         x1 = 0
@@ -82,7 +289,7 @@ class ZigbeeQrcode(object):
         x = Decimal("6.4") * self.MULTIPLE
         y = Decimal("0.5") * self.MULTIPLE
         qr = QrcodeGenerate(zigbee, 'h')
-        image = qr.get_pilimage(10,colour=1, width=1)
+        image = qr.get_pilimage(10, colour=1, width=1)
         im = image.resize((round(self.ZIGBEE_WIDTH), round(self.ZIGBEE_HEIGHT)), Image.ANTIALIAS)
         box = (x, y, x + self.ZIGBEE_WIDTH, y + self.ZIGBEE_HEIGHT)
         self.image.paste(im, box)
@@ -113,6 +320,100 @@ class ZigbeeQrcode(object):
         else:
             x = 0
         self.draw.text((round(x), y), words, font=font, fill=0)
+
+
+class ZigbeeQrcodeOnly(object):
+
+    MULTIPLE = Decimal("100")
+    width = MULTIPLE * Decimal("25.3")
+    height = MULTIPLE * Decimal("25.8")
+    PT_TO_MM_DECIMAL = Decimal("25.4") / Decimal("72")
+    ZIGBEE_WIDTH = MULTIPLE * Decimal("12.5")
+    ZIGBEE_HEIGHT = MULTIPLE * Decimal("12.5")
+    FONT_SZIE = PT_TO_MM_DECIMAL * Decimal("3.4")
+    image = Image.new('L', (round(width), round(height)), 255)
+    draw = ImageDraw.Draw(image)
+
+    def __init__(self):
+        self.p = QPrinterInfo.defaultPrinter()
+        self.print_device = QPrinter(self.p)
+        try:
+            self.FONT_STYLE = get_font_path('方正兰亭黑_GBK.TTF')
+        except Exception as e:
+            raise e
+
+    def print_(self, odoo, input_raw=None):
+        if not input_raw:
+            return
+        request_data = {
+            'params': {'db': odoo.env.db,
+                       'login': odoo._login,
+                       'password': odoo._password,
+                       'sn': input_raw}
+        }
+        headers = {
+            'Content-Type': 'application/json',
+        }
+        host = odoo.host
+        protocol = odoo.protocol
+        port = odoo.port
+        if protocol == 'jsonrpc':
+            scheme = 'http'
+        else:
+            scheme = 'https'
+        url = '%s://%s:%s/api/post/iface/get/zigbee' % (scheme, host, port)
+        response = requests.post(url, data=json.dumps(request_data), headers=headers)
+        if not response:
+            return
+        response_json = json.loads(response.text)
+        if response_json.get('error'):
+            raise Exception(response_json.get('error').get('data').get('message'))
+        result = json.loads(response_json.get('result'))
+        # response = odoo.env['lumi.zigbee.information.wiazrd'].scan_sn_for_zigbee(input_raw)
+        if result.get('state', -1) != 0:
+            raise Exception(result.get('msg'))
+        data = result.get('printcontent')
+        self.zigbee_draw(data.get('zigbee_info'))
+        TIMES = Decimal("3.78")
+        heigh = round(Decimal('25.8') * TIMES)
+        width = round(Decimal('25.4') * TIMES)
+        x1 = 0
+        y1 = 0
+        x2 = x1 + width
+        y2 = y1 + heigh
+        image = QPixmap()
+        tmp = BytesIO()
+        self.image.save(tmp, format='BMP')
+        image.loadFromData(tmp.getvalue())  # 使用QImage构造图片
+        painter = QPainter(self.print_device)  # 使用打印机作为绘制设备
+        painter.drawPixmap(QRect(x1, y1, x2, y2), image)  # 进行绘制（即调起打印服务）
+        painter.end()  # 打印结束
+
+    def write_word(self, words, font, top=0, margin_left=0, margin_right=0):
+        y = top * self.MULTIPLE
+        text_width, text_height = font.getsize(words)
+        if margin_left:
+            x = margin_left * self.MULTIPLE
+        elif margin_right:
+            x = self.width - margin_right * self.MULTIPLE - text_width
+        else:
+            x = 0
+        self.draw.text((round(x), y), words, font=font, fill=0)
+        return Decimal(text_height) / self.MULTIPLE
+
+    def zigbee_draw(self, zigbee):
+        x = Decimal("6.4") * self.MULTIPLE
+        y = Decimal("0.5") * self.MULTIPLE
+        qr = QrcodeGenerate(zigbee, 'h')
+        image = qr.get_pilimage(10, colour=1, width=1)
+        im = image.resize((round(self.ZIGBEE_WIDTH), round(self.ZIGBEE_HEIGHT)), Image.ANTIALIAS)
+        box = (x, y, x + self.ZIGBEE_WIDTH, y + self.ZIGBEE_HEIGHT)
+        self.image.paste(im, box)
+        font_style = self.FONT_STYLE
+        font_szie = self.FONT_SZIE
+        font = ImageFont.truetype(font_style, round(font_szie * self.MULTIPLE))
+        self.write_word('Install Code',font)
+
 
 
 class XiaoMiPrinter_69(object):
@@ -209,17 +510,17 @@ class XiaoMiPrinter_69(object):
             font_sytle = self.FONT_STYLE_BUTTOM
             font_szie = self.FONT_SZIE_BUTTOM_LIFT
             font = ImageFont.truetype(font_sytle, round(font_szie * self.MULTIPLE))
-            self.write_word(address, font, top=Decimal("32.6'), margin_left=Decimal('2.5"))
-            self.write_word(date, font, top=Decimal("34.1'), margin_left=Decimal('2.5"))
+            self.write_word(address, font, top=Decimal("32.6"), margin_left=Decimal("2.5"))
+            self.write_word(date, font, top=Decimal("34.1"), margin_left=Decimal("2.5"))
         else:
             font_sytle = self.FONT_STYLE_BUTTOM
             font_szie = self.FONT_SZIE_BUTTOM_LIFT
             font = ImageFont.truetype(font_sytle, round(font_szie * self.MULTIPLE))
             first_add = address[0:15]
             sec_add = "\t\t\t\t %s" % address[15:]
-            self.write_word(first_add, font, top=Decimal("32.1'), margin_left=Decimal('2.5"))
-            self.write_word(sec_add, font, top=Decimal("33.6'), margin_left=Decimal('2.5"))
-            self.write_word(date, font, top=Decimal("35.3'), margin_left=Decimal('2.5"))
+            self.write_word(first_add, font, top=Decimal("32.1"), margin_left=Decimal("2.5"))
+            self.write_word(sec_add, font, top=Decimal("33.6"), margin_left=Decimal("2.5"))
+            self.write_word(date, font, top=Decimal("35.3"), margin_left=Decimal("2.5"))
 
     def certificate_draw(self):
         self.draw.rectangle((round(Decimal("25.3") * self.MULTIPLE), round(Decimal("32.8") * self.MULTIPLE),
@@ -228,8 +529,8 @@ class XiaoMiPrinter_69(object):
         font_sytle = self.FONT_STYLE_BUTTOM
         font_szie = self.FONT_SZIE_BUTTOM_RIGHT
         font = ImageFont.truetype(font_sytle, round(font_szie * self.MULTIPLE))
-        self.write_word('合格证', font, top=Decimal("33.2'), margin_right=Decimal('4.35"))
-        self.write_word('已检验', font, top=Decimal("34.5'), margin_right=Decimal('4.35"))
+        self.write_word('合格证', font, top=Decimal("33.2"), margin_right=Decimal("4.35"))
+        self.write_word('已检验', font, top=Decimal("34.5"), margin_right=Decimal("4.35"))
 
     def print_(self, odoo, input_raw=None):
         if not input_raw:
@@ -359,17 +660,17 @@ class AqaraPrinter_69(object):
             font_sytle = self.FONT_STYLE_BUTTOM
             font_szie = self.FONT_SZIE_BUTTOM_LIFT
             font = ImageFont.truetype(font_sytle, round(font_szie * self.MULTIPLE))
-            self.write_word(address, font, top=Decimal("32.6'), margin_left=Decimal('2.5"))
-            self.write_word(date, font, top=Decimal("34.1'), margin_left=Decimal('2.5"))
+            self.write_word(address, font, top=Decimal("32.6"), margin_left=Decimal("2.5"))
+            self.write_word(date, font, top=Decimal("34.1"), margin_left=Decimal("2.5"))
         else:
             font_sytle = self.FONT_STYLE_BUTTOM
             font_szie = self.FONT_SZIE_BUTTOM_LIFT
             font = ImageFont.truetype(font_sytle, round(font_szie * self.MULTIPLE))
             first_add = address[0:15]
             sec_add = "\t\t\t\t %s" % address[15:]
-            self.write_word(first_add, font, top=Decimal("32.1'), margin_left=Decimal('2.5"))
-            self.write_word(sec_add, font, top=Decimal("33.6'), margin_left=Decimal('2.5"))
-            self.write_word(date, font, top=Decimal("35.3'), margin_left=Decimal('2.5"))
+            self.write_word(first_add, font, top=Decimal("32.1"), margin_left=Decimal("2.5"))
+            self.write_word(sec_add, font, top=Decimal("33.6"), margin_left=Decimal("2.5"))
+            self.write_word(date, font, top=Decimal("35.3"), margin_left=Decimal("2.5"))
 
     def certificate_draw(self):
         self.draw.rectangle((round(Decimal("25.3") * self.MULTIPLE), round(Decimal("32.8") * self.MULTIPLE),
@@ -378,8 +679,8 @@ class AqaraPrinter_69(object):
         font_sytle = self.FONT_STYLE_BUTTOM
         font_szie = self.FONT_SZIE_BUTTOM_RIGHT
         font = ImageFont.truetype(font_sytle, round(font_szie * self.MULTIPLE))
-        self.write_word('合格证', font, top=Decimal("33.2'), margin_right=Decimal('4.35"))
-        self.write_word('已检验', font, top=Decimal("34.5'), margin_right=Decimal('4.35"))
+        self.write_word('合格证', font, top=Decimal("33.2"), margin_right=Decimal("4.35"))
+        self.write_word('已检验', font, top=Decimal("34.5"), margin_right=Decimal("4.35"))
 
     def print_(self, odoo, input_raw=None):
         if not input_raw:

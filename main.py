@@ -6,8 +6,7 @@
 #
 # WARNING! All changes made in this file will be lost!
 import sys
-from PyQt5 import sip
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5 import QtWidgets
 from app.application import MainWindow
 
 if __name__ == '__main__':
