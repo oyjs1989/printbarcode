@@ -26,6 +26,29 @@ import requests
 
 # 所有字体
 
+DEFAULT_MULTIPLE = Decimal('100')
+OBJ_REFERENCE_POINT = (
+    'LEFT_TOP',
+    'RIGHT_TOP',
+    'CENTER_TOP',
+    'LEFT_MID',
+    'RIGHT_MID',
+    'CENTER_MID',
+    'LEFT_BOTTOM',
+    'RIGHT_BOTTOM',
+    'CENTER_BOTTOM')
+
+TMP_REFERENCE_POINT = (
+    'LEFT_TOP',
+    'RIGHT_TOP',
+    'CENTER_TOP',
+    'LEFT_MID',
+    'RIGHT_MID',
+    'CENTER_MID',
+    'LEFT_BOTTOM',
+    'RIGHT_BOTTOM',
+    'CENTER_BOTTOM')
+
 def get_font_path(file_path):
     if os.path.isfile(file_path):
         return file_path
@@ -36,14 +59,106 @@ def get_font_path(file_path):
         raise Exception('%s not found' % file_path)
 
 
+class Draw(object):
+
+    def __init__(self, image, width=0, height=0, x=0, y=0, horizontal_center=False, vertical_center=False,
+                 obj_reference_point=OBJ_REFERENCE_POINT[0], tmp_reference_point=TMP_REFERENCE_POINT[0],
+                 multiple=DEFAULT_MULTIPLE, **kwargs):
+        self.image = image
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.horizontal_center = horizontal_center
+        self.vertical_center = vertical_center
+        self.obj_reference_point = obj_reference_point
+        self.tmp_reference_point = tmp_reference_point
+        self.multiple = multiple
+        self.characteristic = kwargs
+
+    def get_width_height(self):
+        '''
+        1.计算长宽（二维码，条码，文本）   输入的值（非图形类）
+        :return:
+        '''
+        pass
+
+    def get_point(self):
+        '''
+        计算左上角的位置  PIL固定位置
+        :return:
+        '''
+        pass
+
+    def prev(self):
+        '''
+        根据参数修改坐标位置
+        :return:
+        '''
+        width, height = self.image
+        pass
+
+    def after(self):
+        pass
+
+    def drawing(self):
+        pass
+
+    def run(self):
+        self.prev()
+        self.drawing()
+        self.after()
+
+
+class TextDraw(Draw):
+    '''文本打印'''
+
+    def __init__(self, **kwargs):
+        super(TextDraw, self).__init__(**kwargs)
+        self.font_size = self.characteristic.get('font_size')
+        self.font_style = self.characteristic.get('font_style')
+        self.direction = self.characteristic.get('direction') #direction: 文字的書寫方向rtl 從右開始寫到左邊 ltr 從左邊到右邊 ttb 從上到下
+        self.spacing = self.characteristic.get('spacing')  # 行距
+        self.align = self.characteristic.get('align')  # align: 設定文字的對齊方式，left/center/right 主要针对有换行数据，因为长短不一
+        self.text = self.characteristic.get('text')
+        self.font = ImageFont.truetype(self.font_style, round(self.font_size * self.multiple))
+
+class BarcodeDraw(Draw):
+    '''
+    二维码/条码打印
+    '''
+    def __init__(self, **kwargs):
+        super(BarcodeDraw, self).__init__(**kwargs)
+        self.font_size = self.characteristic.get('font_size')
+        self.font_style = self.characteristic.get('font_style')
+        self.font = ImageFont.truetype(self.font_style, round(self.font_size * self.multiple))
+
+class PictureDraw(Draw):
+    '''
+    嵌入图片
+    '''
+    def __init__(self, **kwargs):
+        super(PictureDraw, self).__init__(**kwargs)
+        self.image_path = self.characteristic.get('font_size')
+
+class ImageDraw(Draw):
+    '''
+    绘图
+    '''
+    def __init__(self, **kwargs):
+        super(ImageDraw, self).__init__(**kwargs)
+        self.shape = self.characteristic.get('shape')
+        self.thickness = self.characteristic.get('thickness')
+
+
 class Printer(object):
     '''
     打印机基类：
-    0.获取打印配置
-    1.生成打印模型
-    2.获取打印数据
-    3.生成打印图像
-    4.调用打印机
+    0.获取打印配置  读取配置参数获取打印的内容格式
+    1.生成打印模型  根据打印格式生成打印模型
+    2.获取打印数据  向服务器/本地获取数据
+    3.生成打印图像  填充数据生成图像
+    4.调用打印机    调用打印机打印
     '''
 
     def __init__(self):
@@ -482,7 +597,7 @@ class XiaoMiPrinter_69(object):
         im = cd.get_pilimage(barcode_width, barcode_height)
         self.image.paste(im, box)
 
-    def sn_sku_draw(self, sn,sku):
+    def sn_sku_draw(self, sn, sku):
         font_sytle = self.FONT_STYLE_MID
         font_szie = self.FONT_SZIE_MID
         y = Decimal("10.2")
@@ -539,11 +654,30 @@ class XiaoMiPrinter_69(object):
         if not response:
             return
         if response.get('state') != 0:
-            return
+            raise Exception(response.get('msg'))
+
+        def get_head_name(name):
+            '''
+            产品名称截取
+            :param name:
+            :return:
+            '''
+            count = 0
+            first_name = name
+            second_name = ''
+            for char in name:
+                if char in ('/', '-', ' '):
+                    first_name = name[0:count]
+                    second_name = name[count + 1:]
+                    break
+                else:
+                    count += 1
+            return first_name, second_name
         data = response.get('printcontent')
+        first_name, second_name = get_head_name(data.get('product_name'))
         self.image = Image.new('L', (round(self.width), round(self.height)), 255)
         self.draw = ImageDraw.Draw(self.image)
-        self.name_draw(data.get('first_name'), data.get('second_name'))
+        self.name_draw(first_name, second_name)
         self.color_draw(data.get('color'))
         self.sn_draw(data.get('sn'))
         self.sn_sku_draw(data.get('sn'), data.get('SKU'))
@@ -626,7 +760,7 @@ class AqaraPrinter_69(object):
         barcode_width = Decimal("27.8") * self.MULTIPLE
         barcode_height = Decimal("5") * self.MULTIPLE
         x = Decimal("2.5") * self.MULTIPLE
-        y = Decimal("5") * self.MULTIPLE
+        y = Decimal("4.7") * self.MULTIPLE
         box = (x, y, x + barcode_width, y + barcode_height)
         im = cd.get_pilimage(barcode_width, barcode_height)
         self.image.paste(im, box)
@@ -634,8 +768,8 @@ class AqaraPrinter_69(object):
     def sn_sku_draw(self, sn, sku):
         font_sytle = self.FONT_STYLE_MID
         font_szie = self.FONT_SZIE_MID
-        y1 = Decimal("10.2")
-        y2 = Decimal("12.2")
+        y1 = Decimal("9.9")
+        y2 = Decimal("11.9")
         font = ImageFont.truetype(font_sytle, round(font_szie * self.MULTIPLE))
         self.write_word(sn, font, top=y1, margin_right=Decimal("3.5"))
         self.write_word(sku, font, top=y2, margin_right=Decimal("3.5"))
@@ -648,7 +782,7 @@ class AqaraPrinter_69(object):
         barcode_width = Decimal("27.8") * self.MULTIPLE
         barcode_height = Decimal("19") * self.MULTIPLE
         x = Decimal("2.5") * self.MULTIPLE
-        y = Decimal("14.3") * self.MULTIPLE
+        y = Decimal("13.8") * self.MULTIPLE
         box = (x, y, x + barcode_width, y + barcode_height)
         im = cd.get_pilimage(barcode_width, barcode_height)
         self.image.paste(im, box)
@@ -689,11 +823,34 @@ class AqaraPrinter_69(object):
         if not response:
             return
         if response.get('state') != 0:
-            return
+            raise Exception(response.get('msg'))
+
+        def get_head_name(name):
+            '''
+            产品名称截取
+            :param name:
+            :return:
+            '''
+            num = 0
+            count = 0
+            first_name = name
+            second_name = ''
+            for char in name:
+                if char in (' '):
+                    if num == 1:
+                        first_name = name[0:count]
+                        second_name = name[count + 1:]
+                        break
+                    else:
+                        num = 1
+                count += 1
+            return first_name, second_name
+
         data = response.get('printcontent')
+        first_name, second_name = get_head_name(data.get('product_name'))
         self.image = Image.new('L', (round(self.width), round(self.height)), 255)
         self.draw = ImageDraw.Draw(self.image)
-        self.name_draw(data.get('first_name'), data.get('second_name'))
+        self.name_draw(first_name, second_name)
         self.color_draw(data.get('color'))
         self.sn_draw(data.get('sn'))
         self.sn_sku_draw(data.get('sn'), data.get('SKU'))
