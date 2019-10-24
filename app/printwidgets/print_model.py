@@ -120,7 +120,7 @@ class TextDraw(Draw):
         self.direction = self.characteristic.get('direction') #direction: 文字的書寫方向rtl 從右開始寫到左邊 ltr 從左邊到右邊 ttb 從上到下
         self.spacing = self.characteristic.get('spacing')  # 行距
         self.align = self.characteristic.get('align')  # align: 設定文字的對齊方式，left/center/right 主要针对有换行数据，因为长短不一
-        self.text = self.characteristic.get('text')
+        self.text = self.characteristic.get('text')    # 需要打印的文本
         self.font = ImageFont.truetype(self.font_style, round(self.font_size * self.multiple))
 
 class BarcodeDraw(Draw):
@@ -141,7 +141,7 @@ class PictureDraw(Draw):
         super(PictureDraw, self).__init__(**kwargs)
         self.image_path = self.characteristic.get('font_size')
 
-class ImageDraw(Draw):
+class ImagesDraw(Draw):
     '''
     绘图
     '''
@@ -164,7 +164,7 @@ class Printer(object):
     def __init__(self):
         self.p = QPrinterInfo.defaultPrinter()
         self.print_device = QPrinter(self.p)
-        self.font_style = get_font_path('Arial.ttf')
+        self.font_style = get_font_path('./Fonts/Arial.ttf')
         self.virtual_multiple = Decimal("100")  #  虚拟图像放大倍数
         self.virtual_width = self.virtual_multiple * Decimal("25.3")
         self.virtual_height = self.virtual_multiple * Decimal("25.8")
@@ -216,7 +216,7 @@ class SNPrintRectangle(LocalPrinter):
         self.p = QPrinterInfo.defaultPrinter()
         self.print_device = QPrinter(self.p)
         try:
-            self.FONT_STYLE = get_font_path('Arial.ttf')
+            self.FONT_STYLE = get_font_path('./Fonts/Arial.ttf')
         except Exception as e:
             raise e
 
@@ -282,7 +282,7 @@ class SNPrintOval(LocalPrinter):
         self.p = QPrinterInfo.defaultPrinter()
         self.print_device = QPrinter(self.p)
         try:
-            self.FONT_STYLE = get_font_path('Arial.ttf')
+            self.FONT_STYLE = get_font_path('./Fonts/Arial.ttf')
         except Exception as e:
             raise e
 
@@ -349,7 +349,7 @@ class ZigbeeQrcode(object):
         self.p = QPrinterInfo.defaultPrinter()
         self.print_device = QPrinter(self.p)
         try:
-            self.FONT_STYLE = get_font_path('Arial.ttf')
+            self.FONT_STYLE = get_font_path('./Fonts/Arial.ttf')
         except Exception as e:
             raise e
 
@@ -440,8 +440,8 @@ class ZigbeeQrcode(object):
 class ZigbeeQrcodeOnly(object):
 
     MULTIPLE = Decimal("100")
-    width = MULTIPLE * Decimal("25.3")
-    height = MULTIPLE * Decimal("25.8")
+    width = MULTIPLE * Decimal("16.0")
+    height = MULTIPLE * Decimal("22.6")
     PT_TO_MM_DECIMAL = Decimal("25.4") / Decimal("72")
     ZIGBEE_WIDTH = MULTIPLE * Decimal("12.5")
     ZIGBEE_HEIGHT = MULTIPLE * Decimal("12.5")
@@ -453,7 +453,7 @@ class ZigbeeQrcodeOnly(object):
         self.p = QPrinterInfo.defaultPrinter()
         self.print_device = QPrinter(self.p)
         try:
-            self.FONT_STYLE = get_font_path('方正兰亭黑_GBK.TTF')
+            self.FONT_STYLE = get_font_path('./Fonts/方正兰亭黑.ttf')
         except Exception as e:
             raise e
 
@@ -490,8 +490,8 @@ class ZigbeeQrcodeOnly(object):
         data = result.get('printcontent')
         self.zigbee_draw(data.get('zigbee_info'))
         TIMES = Decimal("3.78")
-        heigh = round(Decimal('25.8') * TIMES)
-        width = round(Decimal('25.4') * TIMES)
+        heigh = round(Decimal('22.6') * TIMES)
+        width = round(Decimal('16') * TIMES)
         x1 = 0
         y1 = 0
         x2 = x1 + width
@@ -517,8 +517,8 @@ class ZigbeeQrcodeOnly(object):
         return Decimal(text_height) / self.MULTIPLE
 
     def zigbee_draw(self, zigbee):
-        x = Decimal("6.4") * self.MULTIPLE
-        y = Decimal("0.5") * self.MULTIPLE
+        x = Decimal("1.75") * self.MULTIPLE
+        y = Decimal("5.9") * self.MULTIPLE
         qr = QrcodeGenerate(zigbee, 'h')
         image = qr.get_pilimage(10, colour=1, width=1)
         im = image.resize((round(self.ZIGBEE_WIDTH), round(self.ZIGBEE_HEIGHT)), Image.ANTIALIAS)
@@ -527,7 +527,7 @@ class ZigbeeQrcodeOnly(object):
         font_style = self.FONT_STYLE
         font_szie = self.FONT_SZIE
         font = ImageFont.truetype(font_style, round(font_szie * self.MULTIPLE))
-        self.write_word('Install Code',font)
+        self.write_word('Install Code', font, top=Decimal('20'), margin_left=Decimal('4.35'))
 
 
 
@@ -550,10 +550,10 @@ class XiaoMiPrinter_69(object):
         self.p = QPrinterInfo.defaultPrinter()
         self.print_device = QPrinter(self.p)
         try:
-            self.FONT_STYLE_BUTTOM = get_font_path('方正兰亭黑_GBK.TTF')
-            self.FONT_STYLE_HEAD = get_font_path('方正兰亭黑_GBK.TTF')
-            self.FONT_STYLE_CODE = get_font_path('Arial Unicode MS.TTF')
-            self.FONT_STYLE_MID = get_font_path('Arial.ttf')
+            self.FONT_STYLE_BUTTOM = get_font_path('./Fonts/方正兰亭黑_GBK.TTF')
+            self.FONT_STYLE_HEAD = get_font_path('./Fonts/方正兰亭黑_GBK.TTF')
+            self.FONT_STYLE_CODE = get_font_path('./Fonts/Arial Unicode MS.TTF')
+            self.FONT_STYLE_MID = get_font_path('./Fonts/Arial.ttf')
         except Exception as e:
             raise e
         # self.print_device.setPaperSize(QSizeF(400, 338), QPrinter.Point) #设置打印机数据
@@ -718,10 +718,10 @@ class AqaraPrinter_69(object):
         self.p = QPrinterInfo.defaultPrinter()
         self.print_device = QPrinter(self.p)
         try:
-            self.FONT_STYLE_BUTTOM = get_font_path('方正兰亭黑_GBK.TTF')
-            self.FONT_STYLE_HEAD = get_font_path('方正兰亭黑_GBK.TTF')
-            self.FONT_STYLE_CODE = get_font_path('Arial Unicode MS.TTF')
-            self.FONT_STYLE_MID = get_font_path('Arial.ttf')
+            self.FONT_STYLE_BUTTOM = get_font_path('./Fonts/方正兰亭黑_GBK.TTF')
+            self.FONT_STYLE_HEAD = get_font_path('./Fonts/方正兰亭黑_GBK.TTF')
+            self.FONT_STYLE_CODE = get_font_path('./Fonts/Arial Unicode MS.TTF')
+            self.FONT_STYLE_MID = get_font_path('./Fonts/Arial.ttf')
         except Exception as e:
             raise e
         # self.print_device.setPaperSize(QSizeF(400, 338), QPrinter.Point) #设置打印机数据
