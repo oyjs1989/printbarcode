@@ -34,7 +34,7 @@ class Code128Generate:
     """Top-level class which handles the overall process of
     encoding input string and outputting the result"""
 
-    def __init__(self, text, img, options=None):
+    def __init__(self, text, img, **options):
         """ The options hash currently supports three options:
             * ttf_font: absolute path to a truetype font file used to render the label
             * ttf_fontsize: the size the label is drawn in

@@ -35,7 +35,7 @@ class EAN13Generate:
     """Top-level class which handles the overall process of
     encoding input number and outputting the result"""
 
-    def __init__(self, code, img, font,options):
+    def __init__(self, code, img, font, **options):
         """Set up the encoder with the concatenated input values.
         code must be 12 digits long in the following format
         nnmmmmmppppp

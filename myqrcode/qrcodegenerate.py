@@ -26,7 +26,7 @@ class QrcodeGenerate(object):
         encoding input data, placing it in the matrix and
         outputting the result"""
 
-    def __init__(self, text, ecl=None):
+    def __init__(self, text, ecl=None, **option):
         '''
         ecl 是纠错等级相关，可选如下：
         ErrorCorrectionLevel.L
@@ -44,6 +44,7 @@ class QrcodeGenerate(object):
         self.matrix = enc.encode(text, ecl)
         self.height = 0
         self.width = 0
+        self.option = option
 
     def save(self, filename, cellsize=5):
         """Write the matrix out to an image file"""
