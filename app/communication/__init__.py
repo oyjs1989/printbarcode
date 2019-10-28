@@ -14,7 +14,28 @@ class OdooClient(object):
     '''
     通讯方式 client 登录->记录数据 api 接口调用
     '''
-    pass
+
+    def __init__(self, host, port, protocol, db, login, password):
+        if protocol == 'jsonrpc':
+            scheme = 'http'
+        else:
+            scheme = 'https'
+        self.url = '%s://%s:%s' % (scheme, host, port)
+        self.db = db
+        self.login = login
+        self.password = password
+
+    def json(self):
+        pass
+
+
+    def auth(self):
+        pass
+
+
+    def login(self):
+        pass
+
 
 
 class JsonRPC(object):

@@ -79,8 +79,12 @@ class BaseTender(object):
         pass
 
     def calculation_absolute_position(self):
+        bg_x, bg_y = self.image.size
         '''根据目标点，对照点 xy 计算绝对位置'''
-        pass
+        if self.horizontal_center:  # 水平居中为高级选项，相对底图固定为水平居中 ，忽视之前的xy位置
+            self.x = (bg_x - self.width)/2
+        if self.vertical_center:  # 垂直居中为高级选项，相对底图固定为垂直居中，忽视之前的xy位置
+            self.y = (bg_y - self.height)/2
 
     def calculation_relative_position(self):
         '''
@@ -132,6 +136,19 @@ class TextTender(BaseTender):
         self.draw.text((round(self.x), round(self.y)), self.context, font=self.font, fill=0)
 
 
+    def verify_width_height(self):
+        '''
+        处理对行文本
+        :return:
+        '''
+        self.calculate_length_width()
+
+    def calculate_length_width(self):
+        text_width, text_height = self.font.getsize(self.context)
+        self.width = self.width if self.width > text_width else text_width
+        self.height = self.height if self.height > text_height else text_height
+
+
 class MultilineTender(TextTender):
     '''多行文本,高度是动态的 单行'''
 
@@ -169,11 +186,14 @@ class BarcodeTender(BaseTender):
     '''
 
     def __init__(self, *arg, **kwargs):
-        super(BarcodeTender, self).__init__(*arg,**kwargs)
+        super(BarcodeTender, self).__init__(*arg, **kwargs)
         self.barcode_type = self.characteristic.get('barcode_type')
-        self.font_style = self.characteristic.get('font_style')
-        self.font = ImageFont.truetype(self.font_style, round(self.font_size * self.multiple))
+        self.barcode_mode = BARCODE.get(self.barcode_type)
 
+    def drawing(self):
+        Code128Generate(self.context, self.image, MULTIPLE=self.multiple)
+        EAN13Generate(self.context, self.image, font, MULTIPLE=self.multiple)
+        QrcodeGenerate(self.context, 'l')
 
 class PictureTender(BaseTender):
     '''
@@ -258,8 +278,10 @@ if __name__ == '__main__':
                 'name': '字段1',
                 'font_style': 'Arial.ttf',
                 'font_size': 4.5,
+                'horizontal_center': True,
+                'vertical_center': True,
             }
         ]
     }
     bg = BackGround(**kwargs)
-    bg.drawing({'字段1': 'haha'})
+    bg.drawing({'字段1': '1'})
