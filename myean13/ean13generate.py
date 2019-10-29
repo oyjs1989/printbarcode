@@ -35,7 +35,7 @@ class EAN13Generate:
     """Top-level class which handles the overall process of
     encoding input number and outputting the result"""
 
-    def __init__(self, code, img, font, **options):
+    def __init__(self, code, img, **options):
         """Set up the encoder with the concatenated input values.
         code must be 12 digits long in the following format
         nnmmmmmppppp
@@ -48,6 +48,10 @@ class EAN13Generate:
             # cut of check digit
             code = code[:-1]
         if code.isdigit() and len(code) == 12:
+            font_style = options.get('font_style')
+            font_size = options.get('font_size')
+            self.multiple = options.get('multiple')
+            font = ImageFont.truetype(font_style, round(font_size * self.multiple))
             self.img = img
             self.font = font
             self.code = code
@@ -123,6 +127,6 @@ class EAN13Generate:
 
 
 if __name__ == '__main__':
-    font = ImageFont.truetype("方正兰亭黑简.TTF", 30)
-    encoder = EAN13Generate("6934177714108", font, {'height': 1})
+    font = ImageFont.truetype("../Fonts/方正兰亭黑_GBK.TTF", 30)
+    encoder = EAN13Generate("6934177714108", font, height=1)
     encoder.save('pyStrich.png', 5)

@@ -39,23 +39,11 @@ class EAN13Renderer:
 
         num_bars = (7 * 12) + reduce(sum_len, self.guards, 0)
         MULTIPLE = self.options.get('MULTIPLE')
-        self.margin_left = self.options.get('margin_left', Decimal('0')) * MULTIPLE
-        self.margin_right = self.options.get('margin_right', Decimal('0')) * MULTIPLE
-        if self.margin_left + self.margin_right > self.img.size[1]:
-            raise OverflowError('margin left and margin right over width in total')
-
-        self.margin_top = self.options.get('margin_top', Decimal('0')) * MULTIPLE
-        self.margin_bottom = self.options.get('margin_bottom', Decimal('0')) * MULTIPLE
-        if self.margin_top + self.margin_bottom > self.img.height:
-            raise OverflowError('margin top and margin bottom over height in total')
-
-        self.image_width = self.options.get('width', Decimal(
-            '0')) * MULTIPLE or self.img.width - self.margin_left - self.margin_right
+        self.image_width = self.options.get('width', Decimal('0')) * MULTIPLE or self.img.width - self.margin_left - self.margin_right
         if self.img.width < self.margin_left + self.margin_right + self.image_width:
             self.image_width = self.img.size[1] - self.margin_left - self.margin_right
 
-        self.image_height = self.options.get('height', Decimal(
-            '0')) * MULTIPLE or self.img.height - self.margin_top - self.margin_bottom
+        self.image_height = self.options.get('height', Decimal('0')) * MULTIPLE or self.img.height - self.margin_top - self.margin_bottom
         if self.img.height < self.margin_top + self.margin_bottom + self.image_height:
             self.image_height = self.img.height - self.margin_top - self.margin_bottom
         width, height = self.font.getsize(self.code[0])
