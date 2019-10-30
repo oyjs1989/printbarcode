@@ -106,6 +106,8 @@ class SNPrintRectangle(LocalPrinter):
     def print_(self, odoo, input_raw=None):
         if not input_raw:
             return
+        self.image = Image.new('L', (round(self.width), round(self.height)), 255)
+        self.draw = ImageDraw.Draw(self.image)
         self.sn_draw(input_raw)
         TIMES = Decimal("3.78")
         heigh = round(Decimal('9.5') * TIMES)
@@ -117,6 +119,7 @@ class SNPrintRectangle(LocalPrinter):
         image = QPixmap()
         tmp = BytesIO()
         self.image.save(tmp, format='BMP')
+        self.image.save('sn.png', format='BMP')
         image.loadFromData(tmp.getvalue())  # 使用QImage构造图片
         painter = QPainter(self.print_device)  # 使用打印机作为绘制设备
         painter.drawPixmap(QRect(x1, y1, x2, y2), image)  # 进行绘制（即调起打印服务）
@@ -172,6 +175,8 @@ class SNPrintOval(LocalPrinter):
     def print_(self, odoo, input_raw=None):
         if not input_raw:
             return
+        self.image = Image.new('L', (round(self.width), round(self.height)), 255)
+        self.draw = ImageDraw.Draw(self.image)
         self.sn_draw(input_raw)
         TIMES = Decimal("3.78")
         heigh = round(Decimal('10') * TIMES)
@@ -183,6 +188,7 @@ class SNPrintOval(LocalPrinter):
         image = QPixmap()
         tmp = BytesIO()
         self.image.save(tmp, format='BMP')
+        # self.image.save('sn.png', format='BMP')
         image.loadFromData(tmp.getvalue())  # 使用QImage构造图片
         painter = QPainter(self.print_device)  # 使用打印机作为绘制设备
         painter.drawPixmap(QRect(x1, y1, x2, y2), image)  # 进行绘制（即调起打印服务）
@@ -205,7 +211,7 @@ class SNPrintOval(LocalPrinter):
         x = Decimal("4.1") * self.multiple
         y = Decimal("1") * self.multiple
         width = self.multiple * Decimal("27.8")
-        height = self.multiple * Decimal("5.5")
+        height = self.multiple * Decimal("5.8")
         cg = Code128Generate(sn, self.image, MULTIPLE=self.multiple)
         im = cg.get_pilimage(width, height)
         im = im.resize((round(width), round(height)), Image.ANTIALIAS)
@@ -381,6 +387,7 @@ class ZigbeeQrcodeOnly(object):
         y2 = y1 + heigh
         image = QPixmap()
         tmp = BytesIO()
+        # self.image.save('sn.png', format='BMP')
         self.image.save(tmp, format='BMP')
         image.loadFromData(tmp.getvalue())  # 使用QImage构造图片
         painter = QPainter(self.print_device)  # 使用打印机作为绘制设备

@@ -18,8 +18,8 @@ import uuid
 
 # - Third party module of python
 from PyQt5 import QtWidgets
-from PyQt5.QtCore import pyqtSlot, Qt
-from PyQt5.QtGui import QFont, QIcon
+from PyQt5.QtCore import pyqtSlot, Qt, QRegExp
+from PyQt5.QtGui import QFont, QIcon, QRegExpValidator
 
 # - import odoo package
 from ui.body import Ui_Login
@@ -160,6 +160,9 @@ class SNInput(QtWidgets.QLineEdit):
 
     def __init__(self, main):
         super(SNInput, self).__init__()
+        regx = QRegExp("^[0-9A-Za-z/]{0,20}$")
+        validator = QRegExpValidator(regx, self)
+        self.setValidator(validator)
         self.main = main
 
     def keyPressEvent(self, event):
@@ -202,7 +205,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_SN):
             }
         except Exception as e:
             self.show()
-            QtWidgets.QMessageBox.warning(self, '异常', '字体文件未安装,请先安装字体或将字体文件放在运行文件相同文件夹下')
+            QtWidgets.QMessageBox.warning(self, '异常', '字体文件未安装,%s' % e)
             sys.exit()
         self.actionLogin.triggered.connect(self.open_login)
         self.odoo = None
@@ -217,7 +220,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_SN):
                 if action.text() == self.config.print_method:
                     action.setChecked(True)
 
-    def create_menu_groups(self, menu, actions, func):
+    def create_menu_groups(self, menu: QtWidgets.QAction, actions, func) -> QtWidgets.QAction:
         action_groups = QtWidgets.QActionGroup(self)
         for action in actions:
             qtaction = QtWidgets.QAction(self)
