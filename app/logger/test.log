@@ -1,0 +1,11 @@
+2019-10-31 14:25:18,955 logger DEBUG This is a customer debug message
+2019-10-31 14:25:18,955 logger INFO This is an customer info message
+2019-10-31 14:25:18,955 logger WARNING This is a customer warning message
+2019-10-31 14:25:18,955 logger ERROR This is an customer error message
+2019-10-31 14:25:18,955 logger CRITICAL This is a customer critical message
+2019-10-31 14:33:16,066 logger DEBUG This is a customer debug message
+2019-10-31 14:33:16,066 logger INFO This is an customer info message
+2019-10-31 14:33:16,067 logger WARNING This is a customer warning message
+2019-10-31 14:33:16,067 logger ERROR This is an customer error message
+2019-10-31 14:33:16,067 logger CRITICAL This is a customer critical message
+2019-10-31 14:33:26,470 logger CRITICAL This is a customer critical message

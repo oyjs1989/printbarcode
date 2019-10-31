@@ -30,6 +30,18 @@ from app.printwidgets.print_model import AqaraPrinter_69, XiaoMiPrinter_69, Zigb
     SNPrintRectangle, SNPrintOval
 import json
 
+import logging.handlers
+logger = logging.getLogger("logger")
+handler1 = logging.StreamHandler()
+handler2 = logging.FileHandler(filename="print.log")
+logger.setLevel(logging.DEBUG)
+handler1.setLevel(logging.WARNING)
+handler2.setLevel(logging.DEBUG)
+formatter = logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s")
+handler1.setFormatter(formatter)
+handler2.setFormatter(formatter)
+logger.addHandler(handler1)
+logger.addHandler(handler2)
 
 
 MAC = uuid.UUID(int=uuid.getnode()).hex[-12:]
@@ -176,6 +188,7 @@ class SNInput(QtWidgets.QLineEdit):
             if not input_raw:
                 QtWidgets.QMessageBox.information(self, '提示', '输入为空')
                 return
+            logger.info('%s:%s' % (self.main.config.print_method, input_raw))
             self.main.print(input_raw.strip())
         else:
             QtWidgets.QLineEdit.keyPressEvent(self, event)

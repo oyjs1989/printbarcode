@@ -23,6 +23,9 @@ from decimal import *
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 import requests
+import logging
+
+logger = logging.getLogger('logger')
 
 def get_font_path(file_path):
     if os.path.isfile(file_path):
@@ -48,7 +51,7 @@ class Printer(object):
         self.p = QPrinterInfo.defaultPrinter()
         self.print_device = QPrinter(self.p)
         self.font_style = get_font_path('./Fonts/Arial.ttf')
-        self.virtual_multiple = Decimal("100")  #  虚拟图像放大倍数
+        self.virtual_multiple = Decimal("100")  # 虚拟图像放大倍数
         self.virtual_width = self.virtual_multiple * Decimal("25.3")
         self.virtual_height = self.virtual_multiple * Decimal("25.8")
         self.reality_multiple = Decimal("3.78")  # 打印机放大倍数
@@ -65,10 +68,10 @@ class Printer(object):
         tmp = BytesIO()
         self.image.save(tmp, format='BMP')
         image = QPixmap()
-        image.loadFromData(tmp.getvalue())                # 使用QImage构造图片
-        painter = QPainter(self.print_device)             # 使用打印机作为绘制设备
+        image.loadFromData(tmp.getvalue())  # 使用QImage构造图片
+        painter = QPainter(self.print_device)  # 使用打印机作为绘制设备
         painter.drawPixmap(QRect(x1, y1, x2, y2), image)  # 进行绘制（即调起打印服务）
-        painter.end()                                     # 打印结束
+        painter.end()  # 打印结束
 
 
 class NetPrinter(Printer):
@@ -76,6 +79,7 @@ class NetPrinter(Printer):
 
     def get_net_info(self):
         pass
+
 
 class LocalPrinter(Printer):
     '''
@@ -141,17 +145,18 @@ class SNPrintRectangle(LocalPrinter):
     def sn_draw(self, sn):
         x = Decimal("2.2") * self.multiple
         y = Decimal("1.25") * self.multiple
-        zigbee_width = self.multiple * Decimal("30.1")
-        zigbee_height = self.multiple * Decimal("5")
+        width = self.multiple * Decimal("30.1")
+        height = self.multiple * Decimal("5")
         cg = Code128Generate(sn, self.image, MULTIPLE=self.multiple)
-        im = cg.get_pilimage(zigbee_width, zigbee_height)
-        im = im.resize((round(zigbee_width), round(zigbee_height)), Image.ANTIALIAS)
-        box = (x, y, x + zigbee_width, y + zigbee_height)
+        im = cg.get_pilimage(width, height)
+        im = im.resize((round(width), round(height)), Image.ANTIALIAS)
+        box = (x, y, x + width, y + height)
         self.image.paste(im, box)
         font_style = self.FONT_STYLE
         font_szie = self.PT_TO_MM_DECIMAL * Decimal("5.5")
         font = ImageFont.truetype(font_style, round(font_szie * self.multiple))
         self.write_word('SN:%s' % sn, font, top=Decimal('6.75'), center=True)
+
 
 class SNPrintOval(LocalPrinter):
     '''
@@ -288,8 +293,10 @@ class ZigbeeQrcode(object):
         painter = QPainter(self.print_device)  # 使用打印机作为绘制设备
         painter.drawPixmap(QRect(x1, y1, x2, y2), image)  # 进行绘制（即调起打印服务）
         painter.end()  # 打印结束
+        logger.info('%s:%s' % (input_raw, result.get('printcontent')))
 
     def zigbee_draw(self, zigbee):
+        zigbee = zigbee.replace('$s:', '$S:')
         x = Decimal("6.4") * self.MULTIPLE
         y = Decimal("0.5") * self.MULTIPLE
         qr = QrcodeGenerate(zigbee, 'l')
@@ -320,14 +327,13 @@ class ZigbeeQrcode(object):
         elif margin_right:
             x = self.width - margin_right * self.MULTIPLE - text_width
         elif center:
-            x = (self.width - text_width)/2
+            x = (self.width - text_width) / 2
         else:
             x = 0
         self.draw.text((round(x), y), words, font=font, fill=0)
 
 
 class ZigbeeQrcodeOnly(object):
-
     MULTIPLE = Decimal("100")
     width = MULTIPLE * Decimal("16.0")
     height = MULTIPLE * Decimal("22.6")
@@ -393,6 +399,7 @@ class ZigbeeQrcodeOnly(object):
         painter = QPainter(self.print_device)  # 使用打印机作为绘制设备
         painter.drawPixmap(QRect(x1, y1, x2, y2), image)  # 进行绘制（即调起打印服务）
         painter.end()  # 打印结束
+        logger.info('%s:%s' % (input_raw, result.get('printcontent')))
 
     def write_word(self, words, font, top=0, margin_left=0, margin_right=0):
         y = top * self.MULTIPLE
@@ -407,6 +414,7 @@ class ZigbeeQrcodeOnly(object):
         return Decimal(text_height) / self.MULTIPLE
 
     def zigbee_draw(self, zigbee):
+        zigbee = zigbee.replace('$s:', '$S:')
         x = Decimal("1.75") * self.MULTIPLE
         y = Decimal("5.9") * self.MULTIPLE
         qr = QrcodeGenerate(zigbee, 'l')
@@ -420,9 +428,7 @@ class ZigbeeQrcodeOnly(object):
         self.write_word('Install Code', font, top=Decimal('20'), margin_left=Decimal('4.35'))
 
 
-
 class XiaoMiPrinter_69(object):
-
     # 1in = 2.54cm = 25.4 mm = 72pt = 6pc
     MULTIPLE = Decimal("50")
     width = MULTIPLE * Decimal("33.8")
@@ -476,7 +482,7 @@ class XiaoMiPrinter_69(object):
         self.write_word(color, font, top=color_y, margin_right=Decimal("3.5"))
 
     def sn_draw(self, sn):
-        cd = Code128Generate(sn, self.image,MULTIPLE=self.MULTIPLE)
+        cd = Code128Generate(sn, self.image, MULTIPLE=self.MULTIPLE)
         barcode_width = Decimal("27.8") * self.MULTIPLE
         barcode_height = Decimal("5") * self.MULTIPLE
         x = Decimal("2.5") * self.MULTIPLE
@@ -527,8 +533,9 @@ class XiaoMiPrinter_69(object):
 
     def certificate_draw(self):
         self.draw.rectangle((round(Decimal("25.3") * self.MULTIPLE), round(Decimal("32.8") * self.MULTIPLE),
-                        round(Decimal("30.5") * self.MULTIPLE), (round(Decimal("36") * self.MULTIPLE))), outline="black",
-                       width=round(Decimal("0.07") * self.MULTIPLE))
+                             round(Decimal("30.5") * self.MULTIPLE), (round(Decimal("36") * self.MULTIPLE))),
+                            outline="black",
+                            width=round(Decimal("0.07") * self.MULTIPLE))
         font_sytle = self.FONT_STYLE_BUTTOM
         font_szie = self.FONT_SZIE_BUTTOM_RIGHT
         font = ImageFont.truetype(font_sytle, round(font_szie * self.MULTIPLE))
@@ -540,11 +547,11 @@ class XiaoMiPrinter_69(object):
         self.draw = ImageDraw.Draw(self.image)
         if not input_raw:
             return
-        response = odoo.env['wizard.mrp.commodity.barcode'].print_commodity_barcode(input_raw)
-        if not response:
+        response_json = odoo.env['wizard.mrp.commodity.barcode'].print_commodity_barcode(input_raw)
+        if not response_json:
             return
-        if response.get('state') != 0:
-            raise Exception(response.get('msg'))
+        if response_json.get('state') != 0:
+            raise Exception(response_json.get('msg'))
 
         def get_head_name(name):
             '''
@@ -563,7 +570,8 @@ class XiaoMiPrinter_69(object):
                 else:
                     count += 1
             return first_name, second_name
-        data = response.get('printcontent')
+
+        data = response_json.get('printcontent')
         first_name, second_name = get_head_name(data.get('product_name'))
         self.image = Image.new('L', (round(self.width), round(self.height)), 255)
         self.draw = ImageDraw.Draw(self.image)
@@ -575,12 +583,12 @@ class XiaoMiPrinter_69(object):
         self.address_date_draw(data.get('address'), data.get('datetime'))
         self.certificate_draw()
         TIMES = Decimal("0.4")
-        heigh = round(400*TIMES)
-        width = round(338*TIMES)
+        heigh = round(400 * TIMES)
+        width = round(338 * TIMES)
         x1 = 0
         y1 = 0
-        x2 = x1+width
-        y2 = y1+heigh
+        x2 = x1 + width
+        y2 = y1 + heigh
         image = QPixmap()
         tmp = BytesIO()
         self.image.save(tmp, format='BMP')
@@ -588,9 +596,10 @@ class XiaoMiPrinter_69(object):
         painter = QPainter(self.print_device)  # 使用打印机作为绘制设备
         painter.drawPixmap(QRect(x1, y1, x2, y2), image)  # 进行绘制（即调起打印服务）
         painter.end()  # 打印结束
+        logger.info('%s:%s' % (input_raw, response_json.get('printcontent')))
+
 
 class AqaraPrinter_69(object):
-
     # 1in = 2.54cm = 25.4 mm = 72pt = 6pc
     MULTIPLE = Decimal("50")
     width = MULTIPLE * Decimal("33.8")
@@ -698,8 +707,9 @@ class AqaraPrinter_69(object):
 
     def certificate_draw(self):
         self.draw.rectangle((round(Decimal("25.3") * self.MULTIPLE), round(Decimal("32.8") * self.MULTIPLE),
-                        round(Decimal("30.5") * self.MULTIPLE), (round(Decimal("36") * self.MULTIPLE))), outline="black",
-                       width=round(Decimal("0.07") * self.MULTIPLE))
+                             round(Decimal("30.5") * self.MULTIPLE), (round(Decimal("36") * self.MULTIPLE))),
+                            outline="black",
+                            width=round(Decimal("0.07") * self.MULTIPLE))
         font_sytle = self.FONT_STYLE_BUTTOM
         font_szie = self.FONT_SZIE_BUTTOM_RIGHT
         font = ImageFont.truetype(font_sytle, round(font_szie * self.MULTIPLE))
@@ -711,11 +721,11 @@ class AqaraPrinter_69(object):
         self.draw = ImageDraw.Draw(self.image)
         if not input_raw:
             return
-        response = odoo.env['wizard.mrp.commodity.barcode'].print_commodity_barcode(input_raw)
-        if not response:
+        response_json = odoo.env['wizard.mrp.commodity.barcode'].print_commodity_barcode(input_raw)
+        if not response_json:
             return
-        if response.get('state') != 0:
-            raise Exception(response.get('msg'))
+        if response_json.get('state') != 0:
+            raise Exception(response_json.get('msg'))
 
         def get_head_name(name):
             '''
@@ -738,7 +748,7 @@ class AqaraPrinter_69(object):
                 count += 1
             return first_name, second_name
 
-        data = response.get('printcontent')
+        data = response_json.get('printcontent')
         first_name, second_name = get_head_name(data.get('product_name'))
         self.image = Image.new('L', (round(self.width), round(self.height)), 255)
         self.draw = ImageDraw.Draw(self.image)
@@ -750,12 +760,12 @@ class AqaraPrinter_69(object):
         self.address_date_draw(data.get('address'), data.get('datetime'))
         self.certificate_draw()
         TIMES = Decimal("0.4")
-        heigh = round(400*TIMES)
-        width = round(338*TIMES)
+        heigh = round(400 * TIMES)
+        width = round(338 * TIMES)
         x1 = 0
         y1 = 0
-        x2 = x1+width
-        y2 = y1+heigh
+        x2 = x1 + width
+        y2 = y1 + heigh
         image = QPixmap()
         tmp = BytesIO()
         self.image.save(tmp, format='BMP')
@@ -763,5 +773,4 @@ class AqaraPrinter_69(object):
         painter = QPainter(self.print_device)  # 使用打印机作为绘制设备
         painter.drawPixmap(QRect(x1, y1, x2, y2), image)  # 进行绘制（即调起打印服务）
         painter.end()  # 打印结束
-
-
+        logger.info('%s:%s' % (input_raw, response_json.get('printcontent')))
