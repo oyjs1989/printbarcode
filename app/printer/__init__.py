@@ -48,62 +48,34 @@ print(hDC.GetDeviceCaps(LOGPIXELSX), hDC.GetDeviceCaps(LOGPIXELSY))
 print(Decimal(hDC.GetDeviceCaps(HORZRES)) / Decimal(hDC.GetDeviceCaps(LOGPIXELSX)) * INC_TO_CM,
       Decimal(hDC.GetDeviceCaps(VERTRES)) / Decimal(hDC.GetDeviceCaps(LOGPIXELSY)) * INC_TO_CM)
 
+
 class Printer(object):
-    '''
-    打印机基类：
-    0.获取打印配置  读取配置参数获取打印的内容格式
-    1.生成打印模型  根据打印格式生成打印模型
-    2.获取打印数据  向服务器/本地获取数据
-    3.生成打印图像  填充数据生成图像
-    4.调用打印机    调用打印机打印
-    '''
+    '''打印'''
 
-    def __init__(self):
-        self.p = QPrinterInfo.defaultPrinter()
-        self.print_device = QPrinter(self.p)
-        self.font_style = get_font_path('./Fonts/Arial.ttf')
-        self.virtual_multiple = Decimal("100")  #  虚拟图像放大倍数
-        self.virtual_width = self.virtual_multiple * Decimal("25.3")
-        self.virtual_height = self.virtual_multiple * Decimal("25.8")
-        self.reality_multiple = Decimal("3.78")  # 打印机放大倍数
-        self.reality_heigh = round(Decimal('25.8') * self.reality_multiple)
-        self.reality_width = round(Decimal('25.4') * self.reality_multiple)
-        self.image = Image.new('L', (round(self.virtual_width), round(self.virtual_height)), 255)
-        self.draw = ImageDraw.Draw(self.image)
+    def __init__(self, file_name, image):
+        if image.size[0] > image.size[1]:
+            image = image.rotate(90)
 
-    def printbarcode(self):
-        x1 = 0
-        y1 = 0
-        x2 = x1 + self.reality_width
-        y2 = y1 + self.reality_heigh
-        tmp = BytesIO()
-        self.image.save(tmp, format='BMP')
-        image = QPixmap()
-        image.loadFromData(tmp.getvalue())                # 使用QImage构造图片
-        painter = QPainter(self.print_device)             # 使用打印机作为绘制设备
-        painter.drawPixmap(QRect(x1, y1, x2, y2), image)  # 进行绘制（即调起打印服务）
-        painter.end()                                     # 打印结束
+        ratios = [1.0 * printable_area[0] / image.size[0], 1.0 * printable_area[1] / image.size[1]]
+        scale = min(ratios)
 
-    def prv(self):
-        pass
+        #
+        # Start the print job, and draw the bitmap to
+        #  the printer device at the scaled size.
+        #
+        hDC.StartDoc(file_name)
+        hDC.StartPage()
 
-    def after(self):
-        pass
+        dib = ImageWin.Dib(image)
+        scaled_width, scaled_height = [int(scale * i) for i in image.size]
+        x1 = int((printer_size[0] - scaled_width) / 2)
+        y1 = int((printer_size[1] - scaled_height) / 2)
+        x2 = x1 + scaled_width
+        y2 = y1 + scaled_height
+        dib.draw(hDC.GetHandleOutput(), (x1, y1, x2, y2))
 
-    def run(self):
-        self.prv()
-        self.printbarcode()
-        self.after()
+        hDC.EndPage()
+        hDC.EndDoc()
+        hDC.DeleteDC()
 
-class NetPrinter(Printer):
-    '''互联网信息打印'''
-
-    def get_net_info(self):
-        pass
-
-class LocalPrinter(Printer):
-    '''
-    本地打印，不需要互联网信息
-    '''
-    pass
 

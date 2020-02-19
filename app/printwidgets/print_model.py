@@ -24,8 +24,14 @@ from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 import requests
 import logging
+from crccheck.crc import Crc
+import re
+import qrcode
+import time
 
 logger = logging.getLogger('logger')
+LOCAK_TMP_IMAGE = 'print_image'
+PT_TO_MM_DECIMAL = Decimal("25.4") / Decimal("72")
 
 def get_font_path(file_path):
     if os.path.isfile(file_path):
@@ -35,6 +41,35 @@ def get_font_path(file_path):
         return file_path
     except Exception:
         raise Exception('%s not found' % file_path)
+
+def calc_crc(data):
+    """
+    计算crc值
+
+    :param str data: 待校验的16进制数据
+
+    Usage:
+        >> calc_crc("AD8D69F1163A6ECDD546506D2E1F2FBB")
+        6ee0
+    """
+    inst = Crc(16, 0x1021, initvalue=0xFFFF, xor_output=0xFFFF,
+               reflect_input=True, reflect_output=True)
+    inst.process(bytearray.fromhex(data))
+    crc = inst.finalhex()
+    return crc
+
+def generate_new_zigbee(zigbee):
+    zigbee = zigbee.replace('$s:','$S:')
+    new_zigbee, DID, end = re.search('(.*\$D:)(\w*?)(%Z\$A:.*)', zigbee).groups()
+    newdid = '%016x' % int(DID)   # 000000000F343FEE
+    new_zigbee += newdid.upper()
+    head, install_code = re.search('(.*\$I:)(\w*)', end).groups()
+    new_zigbee += head
+    new_zigbee += install_code[0:-4]
+    CRC = calc_crc(install_code[0:-4]).upper()
+    new_zigbee += CRC[-2:]
+    new_zigbee += CRC[-4:-2]
+    return new_zigbee
 
 
 class Printer(object):
@@ -48,8 +83,9 @@ class Printer(object):
     '''
 
     def __init__(self):
-        self.p = QPrinterInfo.defaultPrinter()
-        self.print_device = QPrinter(self.p)
+        '''
+        init
+        '''
         self.font_style = get_font_path('./Fonts/Arial.ttf')
         self.virtual_multiple = Decimal("100")  # 虚拟图像放大倍数
         self.virtual_width = self.virtual_multiple * Decimal("25.3")
@@ -60,26 +96,57 @@ class Printer(object):
         self.image = Image.new('L', (round(self.virtual_width), round(self.virtual_height)), 255)
         self.draw = ImageDraw.Draw(self.image)
 
+    def get_print_info(self, input_context):
+        '''
+
+        :param input_context:
+        :return:
+        '''
+        pass
+
+    def generate_image(self):
+        pass
+
+    def print_pdf(self):
+        '''
+        QPdfWriter
+        :return:
+        '''
+        pass
+
+    def print_word(self):
+        pass
+
+    def print_execl(self):
+        pass
+
     def print_image(self):
-        x1 = 0
-        y1 = 0
-        x2 = x1 + self.reality_width
-        y2 = y1 + self.reality_heigh
+        self.p = QPrinterInfo.defaultPrinter()
+        self.print_device = QPrinter(self.p)
+        logger.info(self.p)
+        logger.info(self.print_device)
         tmp = BytesIO()
         self.image.save(tmp, format='BMP')
+        self.image.save(LOCAK_TMP_IMAGE, format='BMP')
         image = QPixmap()
         image.loadFromData(tmp.getvalue())  # 使用QImage构造图片
         painter = QPainter(self.print_device)  # 使用打印机作为绘制设备
-        painter.drawPixmap(QRect(x1, y1, x2, y2), image)  # 进行绘制（即调起打印服务）
+        painter.drawPixmap(QRect(0, 0, self.reality_width, self.reality_heigh), image)  # 进行绘制（即调起打印服务）
         painter.end()  # 打印结束
 
+    def print(self):
+        pass
+
+    def run(self, input_context=None):
+        start_time = time.time()
+        self.get_print_info(self, input_context)
+        self.generate_image(self)
+        self.print_image()
+        logger.info('%s: finished cost %s' % self.__class__, time.time() - start_time)
 
 class NetPrinter(Printer):
     '''互联网信息打印'''
-
-    def get_net_info(self):
-        pass
-
+    pass
 
 class LocalPrinter(Printer):
     '''
@@ -87,6 +154,106 @@ class LocalPrinter(Printer):
     '''
     pass
 
+class CloudPrinter(Printer):
+    '''
+    云打印  打印PDF/WORD/EXECL
+    '''
+
+    def loopping(self):
+        self.run()
+
+class ZigbeeQrcodeOnlyBig(LocalPrinter):
+
+    MULTIPLE = Decimal("100")
+    width = MULTIPLE * Decimal("16.0")
+    height = MULTIPLE * Decimal("22.3")
+    PT_TO_MM_DECIMAL = Decimal("25.4") / Decimal("72")
+    ZIGBEE_WIDTH = MULTIPLE * Decimal("14")
+    ZIGBEE_HEIGHT = MULTIPLE * Decimal("14")
+
+    def __init__(self):
+        self.p = QPrinterInfo.defaultPrinter()
+        self.print_device = QPrinter(self.p)
+        try:
+            self.FONT_STYLE = get_font_path('./Fonts/方正兰亭黑.ttf')
+        except Exception as e:
+            raise e
+
+    def print_(self, odoo, input_raw=None):
+        self.image = Image.new('L', (round(self.width), round(self.height)), 255)
+        self.draw = ImageDraw.Draw(self.image)
+        if not input_raw:
+            return
+        request_data = {
+            'params': {'db': odoo.env.db,
+                       'login': odoo._login,
+                       'password': odoo._password,
+                       'sn': input_raw}
+        }
+        headers = {
+            'Content-Type': 'application/json',
+        }
+        host = odoo.host
+        protocol = odoo.protocol
+        port = odoo.port
+        if protocol == 'jsonrpc':
+            scheme = 'http'
+        else:
+            scheme = 'https'
+        url = '%s://%s:%s/api/post/iface/get/zigbee' % (scheme, host, port)
+        response = requests.post(url, data=json.dumps(request_data), headers=headers)
+        if not response:
+            return
+        response_json = json.loads(response.text)
+        if response_json.get('error'):
+            raise Exception(response_json.get('error').get('data').get('message'))
+        result = json.loads(response_json.get('result'))
+        # response = odoo.env['lumi.zigbee.information.wiazrd'].scan_sn_for_zigbee(input_raw)
+        if result.get('state', -1) != 0:
+            raise Exception(result.get('msg'))
+        data = result.get('printcontent')
+        zigbee_info = data.get('zigbee_info')
+        # new_zigbee = generate_new_zigbee(zigbee_info)
+        self.zigbee_draw(zigbee_info)
+        TIMES = Decimal("3.78")
+        heigh = round(Decimal('22.6') * TIMES)
+        width = round(Decimal('16') * TIMES)
+        x1 = 0
+        y1 = 0
+        x2 = x1 + width
+        y2 = y1 + heigh
+        image = QPixmap()
+        tmp = BytesIO()
+        self.image.save(LOCAK_TMP_IMAGE, format='BMP')
+        self.image.save(tmp, format='BMP')
+        image.loadFromData(tmp.getvalue())  # 使用QImage构造图片
+        painter = QPainter(self.print_device)  # 使用打印机作为绘制设备
+        painter.drawPixmap(QRect(x1, y1, x2, y2), image)  # 进行绘制（即调起打印服务）
+        painter.end()  # 打印结束
+        logger.info('%s:%s' % (input_raw, result.get('printcontent')))
+
+    def write_word(self, words, font, top=0, margin_left=0, margin_right=0):
+        y = top * self.MULTIPLE
+        text_width, text_height = font.getsize(words)
+        if margin_left:
+            x = margin_left * self.MULTIPLE
+        elif margin_right:
+            x = self.width - margin_right * self.MULTIPLE - text_width
+        else:
+            x = 0
+        self.draw.text((round(x), y), words, font=font, fill=0)
+        return Decimal(text_height) / self.MULTIPLE
+
+    def zigbee_draw(self, zigbee):
+        x = Decimal("1") * self.MULTIPLE
+        y = Decimal("4.2") * self.MULTIPLE
+        qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=10, border=0)
+        qr.add_data(zigbee)
+        qr.make(fit=True)
+        image = qr.make_image(fill_color="black", back_color="white")
+        im = image.resize((round(self.ZIGBEE_WIDTH), round(self.ZIGBEE_HEIGHT)), Image.ANTIALIAS)
+        box = (x, y, x + self.ZIGBEE_WIDTH, y + self.ZIGBEE_HEIGHT)
+        self.image.paste(im, box)
 
 class SNPrintRectangle(LocalPrinter):
     '''
@@ -123,7 +290,7 @@ class SNPrintRectangle(LocalPrinter):
         image = QPixmap()
         tmp = BytesIO()
         self.image.save(tmp, format='BMP')
-        self.image.save('sn.png', format='BMP')
+        self.image.save(LOCAK_TMP_IMAGE, format='BMP')
         image.loadFromData(tmp.getvalue())  # 使用QImage构造图片
         painter = QPainter(self.print_device)  # 使用打印机作为绘制设备
         painter.drawPixmap(QRect(x1, y1, x2, y2), image)  # 进行绘制（即调起打印服务）
@@ -193,7 +360,7 @@ class SNPrintOval(LocalPrinter):
         image = QPixmap()
         tmp = BytesIO()
         self.image.save(tmp, format='BMP')
-        # self.image.save('sn.png', format='BMP')
+        self.image.save(LOCAK_TMP_IMAGE, format='BMP')
         image.loadFromData(tmp.getvalue())  # 使用QImage构造图片
         painter = QPainter(self.print_device)  # 使用打印机作为绘制设备
         painter.drawPixmap(QRect(x1, y1, x2, y2), image)  # 进行绘制（即调起打印服务）
@@ -277,7 +444,9 @@ class ZigbeeQrcode(object):
         if result.get('state', -1) != 0:
             raise Exception(result.get('msg'))
         data = result.get('printcontent')
-        self.zigbee_draw(data.get('zigbee_info'))
+        zigbee_info = data.get('zigbee_info')
+        # new_zigbee = generate_new_zigbee(zigbee_info)
+        self.zigbee_draw(zigbee_info)
         self.sn_draw(input_raw)
         TIMES = Decimal("3.78")
         heigh = round(Decimal('25.8') * TIMES)
@@ -296,28 +465,31 @@ class ZigbeeQrcode(object):
         logger.info('%s:%s' % (input_raw, result.get('printcontent')))
 
     def zigbee_draw(self, zigbee):
-        zigbee = zigbee.replace('$s:', '$S:')
         x = Decimal("6.4") * self.MULTIPLE
         y = Decimal("0.5") * self.MULTIPLE
-        qr = QrcodeGenerate(zigbee, 'l')
-        image = qr.get_pilimage(10, width=0)
+        # qr = QrcodeGenerate(zigbee, 'l')
+        # image = qr.get_pilimage(10, width=0)
+        qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=10, border=0)
+        qr.add_data(zigbee)
+        qr.make(fit=True)
+        image = qr.make_image(fill_color="black", back_color="white")
         im = image.resize((round(self.ZIGBEE_WIDTH), round(self.ZIGBEE_HEIGHT)), Image.ANTIALIAS)
         box = (x, y, x + self.ZIGBEE_WIDTH, y + self.ZIGBEE_HEIGHT)
         self.image.paste(im, box)
 
     def sn_draw(self, sn):
         cd = Code128Generate(sn, self.image, MULTIPLE=self.MULTIPLE)
-        barcode_width = Decimal("19.8") * self.MULTIPLE
+        barcode_width = Decimal("20") * self.MULTIPLE
         barcode_height = Decimal("4.8") * self.MULTIPLE
         x = (self.width - barcode_width) / 2
-        y = Decimal("14") * self.MULTIPLE
+        y = Decimal("13.5") * self.MULTIPLE
         box = (x, y, x + barcode_width, y + barcode_height)
         im = cd.get_pilimage(barcode_width, barcode_height)
         self.image.paste(im, box)
         font_style = self.FONT_STYLE
         font_szie = self.FONT_SZIE
         font = ImageFont.truetype(font_style, round(font_szie * self.MULTIPLE))
-        self.write_word(sn, font, top=Decimal("19"), center=True)
+        self.write_word(sn, font, top=Decimal("18.5"), center=True)
 
     def write_word(self, words, font, top=0, margin_left=0, margin_right=0, center=False):
         y = top * self.MULTIPLE
@@ -383,7 +555,9 @@ class ZigbeeQrcodeOnly(object):
         if result.get('state', -1) != 0:
             raise Exception(result.get('msg'))
         data = result.get('printcontent')
-        self.zigbee_draw(data.get('zigbee_info'))
+        zigbee_info = data.get('zigbee_info')
+        # new_zigbee = generate_new_zigbee(zigbee_info)
+        self.zigbee_draw(zigbee_info)
         TIMES = Decimal("3.78")
         heigh = round(Decimal('22.6') * TIMES)
         width = round(Decimal('16') * TIMES)
@@ -393,7 +567,7 @@ class ZigbeeQrcodeOnly(object):
         y2 = y1 + heigh
         image = QPixmap()
         tmp = BytesIO()
-        # self.image.save('sn.png', format='BMP')
+        self.image.save(LOCAK_TMP_IMAGE, format='BMP')
         self.image.save(tmp, format='BMP')
         image.loadFromData(tmp.getvalue())  # 使用QImage构造图片
         painter = QPainter(self.print_device)  # 使用打印机作为绘制设备
@@ -414,11 +588,14 @@ class ZigbeeQrcodeOnly(object):
         return Decimal(text_height) / self.MULTIPLE
 
     def zigbee_draw(self, zigbee):
-        zigbee = zigbee.replace('$s:', '$S:')
         x = Decimal("1.75") * self.MULTIPLE
         y = Decimal("5.9") * self.MULTIPLE
-        qr = QrcodeGenerate(zigbee, 'l')
-        image = qr.get_pilimage(10, width=0)
+        # qr = QrcodeGenerate(zigbee, 'l')
+        # image = qr.get_pilimage(10, width=0)
+        qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=10, border=0)
+        qr.add_data(zigbee)
+        qr.make(fit=True)
+        image = qr.make_image(fill_color="black", back_color="white")
         im = image.resize((round(self.ZIGBEE_WIDTH), round(self.ZIGBEE_HEIGHT)), Image.ANTIALIAS)
         box = (x, y, x + self.ZIGBEE_WIDTH, y + self.ZIGBEE_HEIGHT)
         self.image.paste(im, box)
@@ -426,6 +603,105 @@ class ZigbeeQrcodeOnly(object):
         font_szie = self.FONT_SZIE
         font = ImageFont.truetype(font_style, round(font_szie * self.MULTIPLE))
         self.write_word('Install Code', font, top=Decimal('20'), margin_left=Decimal('4.35'))
+
+class ZigbeeQrcodeBig(object):
+    MULTIPLE = Decimal("100")
+    width = MULTIPLE * Decimal("16.0")
+    height = MULTIPLE * Decimal("22.6")
+    PT_TO_MM_DECIMAL = Decimal("25.4") / Decimal("72")
+    ZIGBEE_WIDTH = MULTIPLE * Decimal("14")
+    ZIGBEE_HEIGHT = MULTIPLE * Decimal("14")
+    FONT_SZIE = PT_TO_MM_DECIMAL * Decimal("3.4")
+
+    def __init__(self):
+        self.p = QPrinterInfo.defaultPrinter()
+        self.print_device = QPrinter(self.p)
+        try:
+            self.FONT_STYLE = get_font_path('./Fonts/方正兰亭黑.ttf')
+        except Exception as e:
+            raise e
+
+    def print_(self, odoo, input_raw=None):
+        self.image = Image.new('L', (round(self.width), round(self.height)), 255)
+        self.draw = ImageDraw.Draw(self.image)
+        if not input_raw:
+            return
+        request_data = {
+            'params': {'db': odoo.env.db,
+                       'login': odoo._login,
+                       'password': odoo._password,
+                       'sn': input_raw}
+        }
+        headers = {
+            'Content-Type': 'application/json',
+        }
+        host = odoo.host
+        protocol = odoo.protocol
+        port = odoo.port
+        if protocol == 'jsonrpc':
+            scheme = 'http'
+        else:
+            scheme = 'https'
+        url = '%s://%s:%s/api/post/iface/get/zigbee' % (scheme, host, port)
+        response = requests.post(url, data=json.dumps(request_data), headers=headers)
+        if not response:
+            return
+        response_json = json.loads(response.text)
+        if response_json.get('error'):
+            raise Exception(response_json.get('error').get('data').get('message'))
+        result = json.loads(response_json.get('result'))
+        # response = odoo.env['lumi.zigbee.information.wiazrd'].scan_sn_for_zigbee(input_raw)
+        if result.get('state', -1) != 0:
+            raise Exception(result.get('msg'))
+        data = result.get('printcontent')
+        zigbee_info = data.get('zigbee_info')
+        # new_zigbee = generate_new_zigbee(zigbee_info)
+        self.zigbee_draw(zigbee_info)
+        TIMES = Decimal("3.78")
+        heigh = round(Decimal('22.6') * TIMES)
+        width = round(Decimal('16') * TIMES)
+        x1 = 0
+        y1 = 0
+        x2 = x1 + width
+        y2 = y1 + heigh
+        image = QPixmap()
+        tmp = BytesIO()
+        self.image.save(LOCAK_TMP_IMAGE, format='BMP')
+        self.image.save(tmp, format='BMP')
+        image.loadFromData(tmp.getvalue())  # 使用QImage构造图片
+        painter = QPainter(self.print_device)  # 使用打印机作为绘制设备
+        painter.drawPixmap(QRect(x1, y1, x2, y2), image)  # 进行绘制（即调起打印服务）
+        painter.end()  # 打印结束
+        logger.info('%s:%s' % (input_raw, result.get('printcontent')))
+
+    def write_word(self, words, font, top=0, margin_left=0, margin_right=0, x_center=False):
+        y = top * self.MULTIPLE
+        text_width, text_height = font.getsize(words)
+        if margin_left:
+            x = margin_left * self.MULTIPLE
+        elif margin_right:
+            x = self.width - margin_right * self.MULTIPLE - text_width
+        else:
+            x = 0
+        self.draw.text((round(x), y), words, font=font, fill=0)
+        return Decimal(text_height) / self.MULTIPLE
+
+    def zigbee_draw(self, zigbee):
+        x = Decimal("1") * self.MULTIPLE
+        y = Decimal("4.2") * self.MULTIPLE
+        # qr = QrcodeGenerate(zigbee, 'l')
+        # image = qr.get_pilimage(10, width=0)
+        qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=10, border=0)
+        qr.add_data(zigbee)
+        qr.make(fit=True)
+        image = qr.make_image(fill_color="black", back_color="white")
+        im = image.resize((round(self.ZIGBEE_WIDTH), round(self.ZIGBEE_HEIGHT)), Image.ANTIALIAS)
+        box = (x, y, x + self.ZIGBEE_WIDTH, y + self.ZIGBEE_HEIGHT)
+        self.image.paste(im, box)
+        font_style = self.FONT_STYLE
+        font_szie = self.FONT_SZIE
+        font = ImageFont.truetype(font_style, round(font_szie * self.MULTIPLE))
+        self.write_word('Install Code', font, top=Decimal('19.8'), margin_left=Decimal('4.35'))
 
 
 class XiaoMiPrinter_69(object):
@@ -496,6 +772,7 @@ class XiaoMiPrinter_69(object):
         font_szie = self.FONT_SZIE_MID
         y = Decimal("10.2")
         font = ImageFont.truetype(font_sytle, round(font_szie * self.MULTIPLE))
+        sn = 'SN:%s' % sn
         self.write_word(sn, font, top=y, margin_left=Decimal("2.5"))
         self.write_word(sku, font, top=y, margin_right=Decimal("3.5"))
 
@@ -592,6 +869,7 @@ class XiaoMiPrinter_69(object):
         image = QPixmap()
         tmp = BytesIO()
         self.image.save(tmp, format='BMP')
+        self.image.save(LOCAK_TMP_IMAGE, format='BMP')
         image.loadFromData(tmp.getvalue())  # 使用QImage构造图片
         painter = QPainter(self.print_device)  # 使用打印机作为绘制设备
         painter.drawPixmap(QRect(x1, y1, x2, y2), image)  # 进行绘制（即调起打印服务）
@@ -769,8 +1047,17 @@ class AqaraPrinter_69(object):
         image = QPixmap()
         tmp = BytesIO()
         self.image.save(tmp, format='BMP')
+        self.image.save(LOCAK_TMP_IMAGE, format='BMP')
         image.loadFromData(tmp.getvalue())  # 使用QImage构造图片
         painter = QPainter(self.print_device)  # 使用打印机作为绘制设备
         painter.drawPixmap(QRect(x1, y1, x2, y2), image)  # 进行绘制（即调起打印服务）
         painter.end()  # 打印结束
         logger.info('%s:%s' % (input_raw, response_json.get('printcontent')))
+
+
+if __name__ == '__main__':
+    s = generate_new_zigbee('G$M:1694$S:456SS111992900009$D:255167749%Z$A:04CF8CDF3C765017$I:163AF41829724ED328243F8A91C5179C8CF8')
+    s = 'G$M:1694$S:456SS111992900009$D:000000000F358D05%Z$A:04CF8CDF3C765017$I:163AF41829724ED328243F8A91C5179CC548'
+    qr = QrcodeGenerate(s, 'l')
+    image = qr.get_pilimage(10, width=0)
+    image.save('qrcode.png', 'png')

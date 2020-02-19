@@ -13,7 +13,6 @@ import odoorpc
 from urllib.parse import urlparse
 import base64
 from Crypto.Cipher import AES
-from copy import deepcopy
 import uuid
 
 # - Third party module of python
@@ -27,7 +26,7 @@ from ui.sn import Ui_SN
 
 import resourcedata.images
 from app.printwidgets.print_model import AqaraPrinter_69, XiaoMiPrinter_69, ZigbeeQrcode, ZigbeeQrcodeOnly, \
-    SNPrintRectangle, SNPrintOval
+    SNPrintRectangle, SNPrintOval, ZigbeeQrcodeBig,ZigbeeQrcodeOnlyBig
 import json
 
 import logging.handlers
@@ -212,7 +211,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_SN):
                 '69码打印:米家': XiaoMiPrinter_69(),
                 '69码打印:Aqara': AqaraPrinter_69(),
                 'Zigbee:SN同页打印': ZigbeeQrcode(),
-                'Zigbee:二维码打印': ZigbeeQrcodeOnly(),
+                'Zigbee:Install Code': ZigbeeQrcodeOnly(),
+                'Zigbee:Install Code 14*14': ZigbeeQrcodeOnlyBig(),
+                'Zigbee:14*14': ZigbeeQrcodeBig(),
                 'SN打印:34.5*9.5mm': SNPrintRectangle(),
                 'SN打印:36*10mm': SNPrintOval(),
             }
@@ -293,7 +294,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_SN):
             return
         try:
             # erp获取不了数据库名称
-            if 'erp' in host:
+            if 'Nothing here' in db[0]:
                 db = ['erp']
             odoo.login(db[0], name, password)
             self.odoo = odoo

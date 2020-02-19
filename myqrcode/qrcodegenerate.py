@@ -69,3 +69,10 @@ class QrcodeGenerate(object):
     def get_pilimage(self, cellsize=5, colour=0, width=4):
         qrc = QRCodeRenderer(self.matrix)
         return qrc.get_pilimage(cellsize, colour=colour, width=width)
+
+
+if __name__ == '__main__':
+    s = 'G$M:1694$S:456SS111992900009$D:000000000F358D05%Z$A:04CF8CDF3C765017$I:163AF41829724ED328243F8A91C5179CC548'
+    qr = QrcodeGenerate(s, 'l')
+    image = qr.get_pilimage(10, width=0)
+    image.save('qrcode.png','png')

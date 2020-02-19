@@ -18,12 +18,8 @@ from PIL import Image, ImageDraw, ImageFont
 from mycode128 import Code128Generate
 from myean13 import EAN13Generate
 from myqrcode import QrcodeGenerate
+from qrcode import QRCode, constants
 
-BARCODE = {
-    'code128': Code128Generate,
-    'ean13': EAN13Generate,
-    'qrcode': QrcodeGenerate,
-}
 
 DEFAULT_MULTIPLE = Decimal('50')
 OBJ_REFERENCE_POINT = {
@@ -163,17 +159,45 @@ class MultilineTender(TextTender):
         self.width, self.height = self.font.getsize_multiline(new_context)
 
 
-class BarcodeTender(BaseTender):
+class CodeTender(BaseTender):
+
+
+    def get_image(self):
+        pass
+
+    def drawing(self):
+        image = self.get_image()
+        im = image.resize((round(self.width), round(self.height)), Image.ANTIALIAS)
+        box = (self.x, self.y, self.x + self.ZIGBEE_WIDTH, self.y + self.ZIGBEE_HEIGHT)
+        self.image.paste(im, box)
+
+class BarcodeTender(CodeTender):
     '''
-    二维码/条码打印
+    条码打印
     '''
 
     def __init__(self, *arg, **kwargs):
-        super(BarcodeTender, self).__init__(*arg,**kwargs)
-        self.barcode_type = self.characteristic.get('barcode_type')
+        super(BarcodeTender, self).__init__(*arg, **kwargs)
         self.font_style = self.characteristic.get('font_style')
         self.font = ImageFont.truetype(self.font_style, round(self.font_size * self.multiple))
 
+
+class QRcodeTender(CodeTender):
+
+    def __init__(self, *arg, **kwargs):
+        super(QRcodeTender, self).__init__(*arg, **kwargs)
+        self.error_correction = self.characteristic.get('error_correction', constants.ERROR_CORRECT_L)
+        self.box_size = self.characteristic.get('box_size', 10)
+        self.border = self.characteristic.get('border', 0)
+        self.fill_color = self.characteristic.get('fill_color', 'black')
+        self.back_color = self.characteristic.get('back_color', 'white')
+
+    def get_image(self):
+        qr = QRCode(version=1, error_correction=self.error_correction, box_size=self.box_size, border=self.border)
+        qr.add_data(self.context)
+        qr.make(fit=True)
+        image = qr.make_image(fill_color=self.fill_color, back_color=self.back_color)
+        return image
 
 class PictureTender(BaseTender):
     '''
@@ -201,7 +225,8 @@ TENDERS = {
     'multiline': MultilineTender,
     'pic': PictureTender,
     'img': ImagesTender,
-    'barcode': BarcodeTender,
+    'qrcode': QRcodeTender,
+    'qrcode': QRcodeTender,
 }
 
 
@@ -242,7 +267,6 @@ class BackGround(object):
             self.image.save('debug.png', format='BMP')
         self.image.save(tmp, format='BMP')
         return tmp.getvalue()
-
 
 if __name__ == '__main__':
     kwargs = {

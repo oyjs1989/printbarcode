@@ -14,8 +14,9 @@
 from unittest import TestCase, main
 import requests
 import json
+import jsonrpc
 
-PRO_ERP = {'host': 'https://erp.aqara.com/', 'username': 'junsong.ouyang@aqara.com', 'password': 'https://erp.aqara.com/',
+PRO_ERP = {'host': 'https://erp.aqara.com', 'username': 'miao.yu@aqara.com', 'password': '123123123',
            'db': 'erp'}
 # XWD
 PRO_MES = {'host': 'http://218.17.28.106:8069', 'username': 'junsong.ouyang@aqara.com', 'password': 'junsong123',
@@ -27,7 +28,7 @@ PRO_MES = {'host': 'http://202.104.22.108:8069', 'username': 'junsong.ouyang@aqa
 DEV_ERP = {'host': 'http://127.0.0.1:8069', 'username': 'admin', 'password': '123456', 'db': 'erp'}
 DEV_MES = {'host': 'http://127.0.0.1:8069', 'username': '1111', 'password': '123456', 'db': ''}
 
-MODE = 'dev'
+MODE = 'pro'
 SYSTEM = 'erp'
 
 ERP_FUNC = ['zigbee']
@@ -78,9 +79,11 @@ class TestAPI(TestCase):
             'Content-Type': 'application/json',
         }
         url = '%s%s' % (self.host, api)
-        print(url, input_raw)
+        print(url)
+        print(request_data)
         response = requests.post(url, data=json.dumps(request_data), headers=headers)
         response_json = json.loads(response.text)
+        print(response_json)
         return response_json
 
     def zigbee(self):
